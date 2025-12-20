@@ -1,4 +1,6 @@
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+
 
 // @desc   Register new user
 // @route  POST /api/auth/register
@@ -22,11 +24,15 @@ const registerUser = async (req, res) => {
       });
     }
 
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt)
+
     // 3. Create new user
     const user = await User.create({
       name,
       email,
-      password,
+      password: hashedPassword,
       location,
       role, // optional (defaults to 'user')
     });
