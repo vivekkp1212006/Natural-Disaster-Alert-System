@@ -130,5 +130,24 @@ const getProfile = async (req, res) => {
   }
 };
 
+// @desc   Admin-only test route
+// @route  GET /api/auth/admin
+// @access Private (Admin)
+const adminRoute = (req, res) => {
+  res.json({
+    message: 'Welcome Admin 👑',
+    user: req.user,
+  });
+};
 
-module.exports = { registerUser, loginUser, getProfile };
+// @desc   Volunteer-only test route
+// @route  GET /api/auth/volunteer
+// @access Private (Volunteer)
+const volunteerRoute = (req, res) => {
+  res.json({
+    message: 'Welcome Volunteer 🤝',
+    user: req.user,
+  });
+};
+
+module.exports = { registerUser, loginUser, getProfile, adminRoute, volunteerRoute };
