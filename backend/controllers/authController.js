@@ -150,4 +150,64 @@ const volunteerRoute = (req, res) => {
   });
 };
 
-module.exports = { registerUser, loginUser, getProfile, adminRoute, volunteerRoute };
+// @desc   Request role upgrade
+// @route  POST /api/roles/request
+// @access Private (User)
+const requestRoleUpgrade = async (req, res) => {
+  try {
+    // 1. Get requested role
+    const { requestedRole } = req.body;
+
+    // 2. Get logged-in user
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // 3. Only normal users can request upgrade
+    if (user.role !== 'user') {
+      return res.status(403).json({
+        message: 'Only users can request role upgrade',
+      });
+    }
+
+    // 4. Prevent multiple pending requests
+    if (user.requestStatus === 'pending') {
+      return res.status(400).json({
+        message: 'You already have a pending role request',
+      });
+    }
+
+    // 5. Validate requested role
+    if (!['admin', 'volunteer'].includes(requestedRole)) {
+      return res.status(400).json({
+        message: 'Invalid role requested',
+      });
+    }
+
+    // 6. Set request details
+    user.requestedRole = requestedRole;
+    user.requestStatus = 'pending';
+    user.roleRequestedAt = new Date();
+
+    await user.save();
+
+    // 7. Send response
+    res.status(201).json({
+      message: 'Role upgrade request submitted successfully',
+      request: {
+        requestedRole: user.requestedRole,
+        requestStatus: user.requestStatus,
+        roleRequestedAt: user.roleRequestedAt,
+      },
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+module.exports = { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, requestRoleUpgrade };

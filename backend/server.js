@@ -4,6 +4,8 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 dotenv.config();
 const authRoutes = require('./routes/authRoutes');
+const roleRoutes = require('./routes/roleRoutes');
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,6 +15,8 @@ app.use(express.json());
 
 connectDB();
 app.use('/api/auth', authRoutes);
+app.use('/api/roles', roleRoutes);
+
 
 app.get('/', (req, res) => {
   res.send('<h1>🌊🔥🌪️ Multi-Hazard Disaster Alert System - Backend Running!</h1>');

@@ -26,6 +26,23 @@ const userSchema = new mongoose.Schema(
       default: 'user',
     },
 
+    requestedRole: {
+  type: String,
+  enum: ['volunteer', 'admin'],
+  default: null,
+  },
+
+  requestStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: null,
+  },
+
+  roleRequestedAt: {
+    type: Date,
+    default: null,
+  },
+
     location: {
       type: String,
       required: true,
