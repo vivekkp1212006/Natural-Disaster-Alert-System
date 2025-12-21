@@ -114,5 +114,21 @@ const loginUser = async (req, res) => {
   }
 };
 
+// @desc   Get logged-in user profile
+// @route  GET /api/auth/profile
+// @access Private
+const getProfile = async (req, res) => {
+  try {
+    res.json({
+      message: 'Protected route accessed successfully',
+      user: req.user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server error',
+    });
+  }
+};
 
-module.exports = { registerUser, loginUser };
+
+module.exports = { registerUser, loginUser, getProfile };
