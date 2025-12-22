@@ -6,6 +6,7 @@ dotenv.config();
 const authRoutes = require('./routes/authRoutes');
 const roleRoutes = require('./routes/roleRoutes');
 const disasterRoutes = require('./routes/disasterRoutes');
+const weatherRoutes= require('./routes/weatherRoutes');
 
 
 const app = express();
@@ -18,6 +19,7 @@ connectDB();
 app.use('/api/auth', authRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/disasters', disasterRoutes);
+app.use('/api/weather',weatherRoutes);
 
 
 app.get('/', (req, res) => {
