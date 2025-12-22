@@ -210,4 +210,146 @@ const requestRoleUpgrade = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, requestRoleUpgrade };
+// @desc   Get all pending role requests (paginated)
+// @route  GET /api/roles/pending
+// @access Private (Admin)
+const getPendingRoleRequests = async (req, res) => {
+  try {
+    // 1. Get page & limit from query (default values)
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10; // fixed backend-controlled limit
+
+    // 2. Calculate skip value
+    const skip = (page - 1) * limit;
+
+    // 3. Get total pending requests count
+    const totalRequests = await User.countDocuments({
+      requestStatus: 'pending',
+    });
+
+    // 4. Fetch paginated pending requests
+    const requests = await User.find({ requestStatus: 'pending' })
+      .select('-password')
+      .sort({ roleRequestedAt: -1 }) // latest first
+      .skip(skip)
+      .limit(limit);
+
+    // 5. Send response
+    res.json({
+      page,
+      limit,
+      totalRequests,
+      totalPages: Math.ceil(totalRequests / limit),
+      requests,
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+
+// @desc   Approve role request
+// @route  POST /api/roles/approve/:userId
+// @access Private (Admin)
+const approveRoleRequest = async (req, res) => {
+  try {
+    // 1. Get userId from params
+    const { userId } = req.params;
+
+    // 2. Find user by ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found',
+      });
+    }
+
+    // 3. Ensure there is a pending request
+    if (user.requestStatus !== 'pending' || !user.requestedRole) {
+      return res.status(400).json({
+        message: 'No pending role request to approve',
+      });
+    }
+
+    // 4. Approve role
+    user.role = user.requestedRole;
+
+    // 5. Clear request fields
+    user.requestedRole = null;
+    user.requestStatus = null;
+    user.roleRequestedAt = null;
+
+    // 6. Save changes
+    await user.save();
+
+    // 7. Respond
+    res.json({
+      message: 'Role request approved successfully',
+      user: {
+        id: user._id,
+        role: user.role,
+      },
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+
+// @desc   Reject role request
+// @route  POST /api/roles/reject/:userId
+// @access Private (Admin)
+const rejectRoleRequest = async (req, res) => {
+  try {
+    // 1. Get userId from params
+    const { userId } = req.params;
+
+    // 2. Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found',
+      });
+    }
+
+    // 3. Ensure there is a pending request
+    if (user.requestStatus !== 'pending') {
+      return res.status(400).json({
+        message: 'No pending role request to reject',
+      });
+    }
+
+    // 4. Clear request fields (role remains unchanged)
+    user.requestedRole = null;
+    user.requestStatus = null;
+    user.roleRequestedAt = null;
+
+    // 5. Save changes
+    await user.save();
+
+    // 6. Respond
+    res.json({
+      message: 'Role request rejected successfully',
+      user: {
+        id: user._id,
+        role: user.role,
+      },
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+
+
+module.exports = { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, requestRoleUpgrade, getPendingRoleRequests, approveRoleRequest, rejectRoleRequest };
