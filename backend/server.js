@@ -16,6 +16,9 @@ app.use(cors());
 app.use(express.json());
 
 connectDB();
+require('./cron/alertCron');
+
+
 app.use('/api/auth', authRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/disasters', disasterRoutes);

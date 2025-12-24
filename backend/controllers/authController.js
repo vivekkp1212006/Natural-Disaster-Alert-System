@@ -11,7 +11,7 @@ const registerUser = async (req, res) => {
     const { name, email, password, location, role } = req.body;
 
     // 1. Check required fields
-    if (!name || !email || !password || !location) {
+    if (!name || !email || !password ) {
       return res.status(400).json({
         message: 'Please fill all required fields',
       });
