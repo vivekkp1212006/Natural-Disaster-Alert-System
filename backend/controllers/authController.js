@@ -1,7 +1,8 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-
+const { otpGenerator } = require('../utils/generateOtp');
+const { sendEmail } = require('../utils/sendEmail');
 
 // @desc   Register new user
 // @route  POST /api/auth/register
@@ -11,7 +12,7 @@ const registerUser = async (req, res) => {
     const { name, email, password, location, role } = req.body;
 
     // 1. Check required fields
-    if (!name || !email || !password ) {
+    if (!name || !email || !password || !location ) {
       return res.status(400).json({
         message: 'Please fill all required fields',
       });
@@ -19,15 +20,44 @@ const registerUser = async (req, res) => {
 
     // 2. Check if user already exists
     const userExists = await User.findOne({ email });
-    if (userExists) {
+    if (userExists && userExists.emailVerified) {
       return res.status(400).json({
         message: 'User already exists',
+      });
+    }
+
+    if (userExists && !userExists.emailVerified) {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt)
+
+
+      const otpData= otpGenerator();
+      const emailOtp= otpData.otp;
+      const emailOtpExpiresAt= otpData.expiresAt;
+
+      userExists.password = hashedPassword;
+      userExists.emailOtp = emailOtp;
+      userExists.emailOtpExpiresAt = emailOtpExpiresAt;
+      userExists.emailOtpPurpose = "signup" ;
+      await userExists.save();
+
+      const subject = "Your one time verification code:";
+      const text = `Your OTP for sign-up is : ${emailOtp}`;
+      await sendEmail(email,subject,text);
+
+      return res.status(201).json({
+        message: `OTP sent to ${email}`,
       });
     }
 
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt)
+
+    // OTP generating
+    const otpData= otpGenerator();
+    const emailOtp= otpData.otp;
+    const emailOtpExpiresAt= otpData.expiresAt;
 
     // 3. Create new user
     const user = await User.create({
@@ -36,19 +66,20 @@ const registerUser = async (req, res) => {
       password: hashedPassword,
       location,
       role, // optional (defaults to 'user')
+      emailOtp,
+      emailOtpExpiresAt,
+      emailOtpPurpose: "signup",
+      emailVerified: false,
     });
 
-    // 4. Send response
-    res.status(201).json({
-      message: 'User registered successfully',
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        location: user.location,
-      },
-    });
+      const subject = "Your one time verification code:";
+      const text = `Your OTP for sign-up is : ${emailOtp}`;
+      await sendEmail(email,subject,text);
+
+      return res.status(201).json({
+        message: `OTP sent to ${email}`,
+      });
+
   } catch (error) {
     res.status(500).json({
       message: 'Server error',
@@ -56,6 +87,67 @@ const registerUser = async (req, res) => {
     });
   }
 };
+
+
+//@desc    Email verification
+const verifyEmailOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        message: "Email and OTP are required",
+      });
+    }
+
+    // logic will come next
+    const user = await User.findOne({ email});
+
+    if(!user) {
+      return res.status(400).json ({
+        message : "User not found"
+      });
+    }
+    if(user.emailVerified) {
+      return res.status(400).json ({
+        message : "Email already verified"
+      });
+    }
+
+    if(Number(otp) != user.emailOtp) {
+      return res.status(400).json ({
+        message : "Invalid OTP"
+      });
+    }
+    if(user.emailOtpExpiresAt < Date.now()) {
+      return res.status(400).json ({
+        message : "OTP Expired"
+      });
+    }
+    if(user.emailOtpPurpose != 'signup') {
+      return res.status(400).json ({
+        message : "Invalid OTP"
+      });
+    }
+
+    user.emailVerified = true;
+    user.emailOtp = null;
+    user.emailOtpExpiresAt = null;
+    user.emailOtpPurpose = null;;
+    await user.save();
+
+    return res.status(200).json ({
+      message : "Email verified successfully"
+    })
+
+  } catch (error) {
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 
 // @desc   Login user
 // @route  POST /api/auth/login
@@ -76,6 +168,13 @@ const loginUser = async (req, res) => {
     if (!user) {
       return res.status(401).json({
         message: 'Invalid credentials',
+      });
+    }
+
+    //    check the email is verified or not
+    if(!user.emailVerified) {
+      return res.status(401).json({
+        message: "Please verify your email before logging in"
       });
     }
 
@@ -352,4 +451,4 @@ const rejectRoleRequest = async (req, res) => {
 
 
 
-module.exports = { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, requestRoleUpgrade, getPendingRoleRequests, approveRoleRequest, rejectRoleRequest };
+module.exports = { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, requestRoleUpgrade, getPendingRoleRequests, approveRoleRequest, rejectRoleRequest, verifyEmailOtp };
