@@ -51,6 +51,34 @@ const userSchema = new mongoose.Schema(
       type: Number,
     },
   },
+  emailVerified: {
+    type: Boolean,
+    default: false,
+  },
+  emailOtp: {
+    type: Number,
+  },
+  emailOtpExpiresAt: {
+    type: Date,
+  },
+  emailOtpPurpose: {
+    type: String,
+    enum: ['signup','password_reset'],
+  },
+  phoneVerified: {
+    type: Boolean,
+    default: false,
+  },
+  phoneOtp: {
+    type: Number,
+  },
+  phoneOtpExpiresAt: {
+    type:Date,
+  },
+  phoneOtpPurpose: {
+    type: String,
+    enum: ['phone_verification'],
+  },
   },
   {
     timestamps: true,

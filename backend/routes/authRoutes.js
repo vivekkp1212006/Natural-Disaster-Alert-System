@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { registerUser, loginUser, getProfile, adminRoute, volunteerRoute } = require('../controllers/authController');
+const { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, verifyEmailOtp } = require('../controllers/authController');
 const {protect} = require('../middleware/authMiddleware');
 const {authorizeRoles} = require('../middleware/roleMiddleware');
 
 // POST /api/auth/register
 router.post('/register', registerUser);
 router.post('/login', loginUser);
+router.post('/verify-email', verifyEmailOtp);
 
 //protected routes
 
