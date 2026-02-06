@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { login } from "../services/authService";
 import "./login.css";
+import { Link } from "react-router-dom";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -55,6 +56,9 @@ const Login = () => {
             Login
           </button>
         </form>
+        <p>
+          Don't have an account? <Link to={"/signup"}>Sign Up</Link>
+        </p>
 
         {message && (
           <p className={`message ${messageType}`}>{message}</p>

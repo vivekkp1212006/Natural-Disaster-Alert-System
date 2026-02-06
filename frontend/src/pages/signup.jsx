@@ -1,6 +1,7 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 const Signup = () =>  {
     const [name, setName] = useState("");
@@ -70,25 +71,28 @@ const Signup = () =>  {
                     value={name}
                     required
                     onChange={(e) => setName(e.target.value)}
-                />
+                /><br></br>
                 <input
                     type="email"
                     placeholder="email"
                     value={email}
                     required
                     onChange={ (e) => setEmail(e.target.value)}
-                />
+                /><br></br>
                 <input
                     type="password"
                     placeholder="password"
                     value={password}
                     required
                     onChange={ (e)=> setPassword(e.target.value)}
-                />
+                /><br></br>
                 <button type="submit">
                     Sign-Up
                 </button>
             </form>
+            <p>
+                Already have an account? <Link to={"/login"}>Log in</Link>
+            </p>
             <p>{message || "Fetching location..."}</p>
         </div>
     );
