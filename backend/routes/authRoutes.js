@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, verifyEmailOtp } = require('../controllers/authController');
+const { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, verifyEmailOtp, forgotPassword, resetPassword } = require('../controllers/authController');
 const {protect} = require('../middleware/authMiddleware');
 const {authorizeRoles} = require('../middleware/roleMiddleware');
 
@@ -8,6 +8,8 @@ const {authorizeRoles} = require('../middleware/roleMiddleware');
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/verify-email', verifyEmailOtp);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 //protected routes
 
