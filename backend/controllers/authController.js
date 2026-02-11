@@ -148,6 +148,100 @@ const verifyEmailOtp = async (req, res) => {
   }
 };
 
+//forgot password 
+const forgotPassword = async (req,res) => { 
+  try { 
+    const {email} = req.body; 
+    if (!email) { 
+      return res.status(400).json({ 
+        message: "Email required" 
+      }); 
+    } 
+    const user = await User.findOne({ email }); 
+    if(user && user.emailVerified) { 
+      // OTP generating 
+      const otpData= otpGenerator(); 
+      const emailOtp= otpData.otp; 
+      const emailOtpExpiresAt= otpData.expiresAt; 
+      user.emailOtp = emailOtp; 
+      user.emailOtpExpiresAt = emailOtpExpiresAt; 
+      user.emailOtpPurpose = "password_reset" ; 
+      await user.save(); 
+      // sending mail 
+      const subject = "Your one time verification code:"; 
+      const text = `Your OTP for password reset is : ${emailOtp} \n Do not share OTP with anyone`;
+      await sendEmail(email,subject,text); 
+    } 
+    return res.status(200).json ({ 
+      message: "If the email exists, an OTP has been sent" 
+    }); 
+  } 
+  catch(error) { 
+    res.status(500).json ({ 
+      message: "Server error", 
+      error:error.message, 
+    }); 
+  } 
+};
+
+// @desc Reset password using OTP 
+const resetPassword = async (req, res) => { 
+  try { 
+    const { email, otp, newPassword } = req.body; 
+    if(!email || !otp || !newPassword) { 
+      return res.status(400).json ({ 
+        message: "Bad request" 
+      }); 
+    } 
+    const user = await User.findOne({ email }); 
+    if(!user) { 
+      return res.status(400).json({ 
+        message: "Invalid OTP or Email" 
+      }); 
+    } 
+    if(!user.emailVerified) { 
+      return res.status(400).json ({ 
+        message: "Invalid OTP or Email" 
+      }); 
+    } 
+    if(!user.emailOtp) { 
+      return res.status(400).json ({ 
+        message: "Invalid OTP or Email" 
+      }); 
+    } 
+    if( !user.emailOtpExpiresAt || user.emailOtpExpiresAt < Date.now() ) { 
+      return res.status(400).json ({ 
+        message: "Invalid OTP or Email" 
+      }); 
+    } 
+    if(user.emailOtpPurpose != "password_reset" ) { 
+      return res.status(400).json ({ 
+        message: "Invalid OTP or Email" 
+      }); 
+    } 
+    if(user.emailOtp != Number(otp) ) { 
+      return res.status(400).json ({ 
+        message: "Invalid OTP or Email" 
+      }); 
+    } 
+    const salt = await bcrypt.genSalt(10); 
+    const hashedPassword = await bcrypt.hash(newPassword, salt); 
+    user.password = hashedPassword; 
+    user.emailOtp = null; 
+    user.emailOtpExpiresAt = null; 
+    user.emailOtpPurpose = null; 
+    await user.save(); 
+    return res.status(200).json ({ 
+      message: "Password reset successfull. Please login" 
+    }); 
+  } 
+  catch (error) { 
+    res.status(500).json({ 
+      message: "Server error", 
+      error: error.message, 
+    }); 
+  } 
+};
 
 // @desc   Login user
 // @route  POST /api/auth/login
@@ -451,4 +545,5 @@ const rejectRoleRequest = async (req, res) => {
 
 
 
-module.exports = { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, requestRoleUpgrade, getPendingRoleRequests, approveRoleRequest, rejectRoleRequest, verifyEmailOtp };
+module.exports = { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, requestRoleUpgrade, getPendingRoleRequests, approveRoleRequest, rejectRoleRequest, 
+                   verifyEmailOtp, forgotPassword, resetPassword };
