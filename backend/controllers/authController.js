@@ -158,6 +158,11 @@ const forgotPassword = async (req,res) => {
       }); 
     } 
     const user = await User.findOne({ email }); 
+    if(!user) {
+      return res.status(400).json ({
+        message: "If the email exists, an OTP has been sent"
+      });
+    }
     if(user && user.emailVerified) { 
       // OTP generating 
       const otpData= otpGenerator(); 
