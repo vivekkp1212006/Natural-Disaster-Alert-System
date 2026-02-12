@@ -7,7 +7,9 @@ const Signup = () =>  {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [message, setMessage] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [location, setLocation] = useState({
         latitude: null,
         longitude: null,
@@ -41,11 +43,31 @@ const Signup = () =>  {
     },  []);
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        const hasUpperCase = /[A-Z]/.test(password);
+        const hasLowerCase = /[a-z]/.test(password);
+        const hasSpecialChar = /[^a-zA-Z0-9]/.test(password);
+
         if (!location.latitude || !location.longitude) {
             setMessage("Location is required to register");
             return;
         }
-            
+        if(!password) {
+            setMessage("Set a password");
+            return;
+        }
+        if(!confirmPassword || password !== confirmPassword) {
+            setMessage("Password mismatch");
+            return;
+        }
+        if( password.length < 8 || !hasUpperCase || !hasLowerCase || !hasSpecialChar) {
+            setMessage(`Too weak password \nPassword rules \nOne upper case character \nOne lowercase character \nOne special character \n atleast 8 characters`);
+            return;
+        } 
+         
+        //disable the subit button
+        setIsSubmitting(true);
+
         try {
             const res = await axios.post("http://localhost:5000/api/auth/register", {name, email, password, location: {lat: location.latitude, lng: location.longitude,},});
             setMessage(res.data.message);
@@ -59,6 +81,10 @@ const Signup = () =>  {
             else {
                 setMessage("Something went wrong. Try again later");
             }
+        }
+        finally {
+            // enables the button
+            setIsSubmitting(false);
         }
     };
     return (
@@ -86,14 +112,21 @@ const Signup = () =>  {
                     required
                     onChange={ (e)=> setPassword(e.target.value)}
                 /><br></br>
-                <button type="submit">
+                <input
+                    type="password"
+                    placeholder="Confirm password"
+                    value={confirmPassword}
+                    required
+                    onChange={ (e) => setConfirmPassword(e.target.value)}
+                /><br />
+                <button type="submit" disabled={isSubmitting}>
                     Sign-Up
                 </button>
             </form>
             <p>
                 Already have an account? <Link to={"/login"}>Log in</Link>
             </p>
-            <p>{message || "Fetching location..."}</p>
+            <p>{isSubmitting ? "Processing..." : message }</p>
         </div>
     );
 };
