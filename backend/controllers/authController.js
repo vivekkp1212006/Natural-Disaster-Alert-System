@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { otpGenerator } = require('../utils/generateOtp');
 const { sendEmail } = require('../utils/sendEmail');
+const validatePassword = require('../utils/validatePassword');
 
 // @desc   Register new user
 // @route  POST /api/auth/register
@@ -23,6 +24,13 @@ const registerUser = async (req, res) => {
     if (userExists && userExists.emailVerified) {
       return res.status(400).json({
         message: 'User already exists',
+      });
+    }
+
+    const validate = validatePassword(password);
+    if(!validate.valid) {
+      return res.status(400).json({
+        message: validate.message
       });
     }
 
@@ -228,7 +236,15 @@ const resetPassword = async (req, res) => {
       return res.status(400).json ({ 
         message: "Invalid OTP or Email" 
       }); 
-    } 
+    }
+
+    const validate = validatePassword(newPassword);
+    if(!validate.valid) {
+      return res.status(400).json({
+        message: validate.message
+      });
+    }
+
     const salt = await bcrypt.genSalt(10); 
     const hashedPassword = await bcrypt.hash(newPassword, salt); 
     user.password = hashedPassword; 
