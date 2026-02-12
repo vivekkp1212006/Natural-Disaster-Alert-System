@@ -8,9 +8,14 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    //disable the subit button
+    setIsSubmitting(true);
+
     try {
       const data = await login(email, password);
       setMessage(data.message);
@@ -23,6 +28,10 @@ const Login = () => {
       } else {
         setMessage("Something went wrong. Try again later");
       }
+    }
+    finally {
+        // enables the button
+        setIsSubmitting(false);
     }
   };
 
@@ -52,7 +61,7 @@ const Login = () => {
             />
           </div>
           <p><Link to={"/forgot-password"}>Forgot password</Link></p>
-          <button type="submit" className="login-button">
+          <button type="submit" disabled={isSubmitting} className="login-button">
             Login
           </button>
         </form>
@@ -60,9 +69,7 @@ const Login = () => {
           Don't have an account? <Link to={"/signup"}>Sign Up</Link>
         </p>
 
-        {message && (
-          <p className={`message ${messageType}`}>{message}</p>
-        )}
+          <p className={`message ${messageType}`}>{isSubmitting ? "Processing..." : message }</p>
       </div>
     </div>
   );
