@@ -79,6 +79,24 @@ const userSchema = new mongoose.Schema(
     type: String,
     enum: ['phone_verification'],
   },
+  otpRequestCount: {
+    type: Number,
+    default: 0,
+  },
+  otpRequestWindowStart: {
+    type: Date,
+    default: null,
+  },
+  lastOtpSentAt: {
+    type: Date, 
+  },
+  otpFailedAttempts: {
+    type: Number,
+    default: 0,
+  },
+  otpLockUntil: {
+    type: Date,
+  }
   },
   {
     timestamps: true,
