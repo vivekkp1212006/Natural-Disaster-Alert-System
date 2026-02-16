@@ -166,25 +166,54 @@ const forgotPassword = async (req,res) => {
       }); 
     } 
     const user = await User.findOne({ email }); 
-    if(!user) {
-      return res.status(400).json ({
-        message: "If the email exists, an OTP has been sent"
-      });
-    }
-    if(user && user.emailVerified) { 
-      // OTP generating 
-      const otpData= otpGenerator(); 
-      const emailOtp= otpData.otp; 
-      const emailOtpExpiresAt= otpData.expiresAt; 
-      user.emailOtp = emailOtp; 
-      user.emailOtpExpiresAt = emailOtpExpiresAt; 
-      user.emailOtpPurpose = "password_reset" ; 
+    if(user) {
+      if(user.otpLockUntil && Date.now() < user.otpLockUntil) {
+        return res.status(429).json ({
+          message: "Entered too many wrong OTP try after some times"
+        });
+      }
+      if(user.lastOtpSentAt) {
+        const cooldownTime =  Date.now() - user.lastOtpSentAt ;
+        if( cooldownTime <= 30000 ) {
+          return res.status(429).json ({
+            message: `wait : ${30000 - cooldownTime} second`
+          });
+        }
+      }
+      if(user.otpRequestWindowStart &&  Date.now() - user.otpRequestWindowStart > 300000 ) {
+        user.otpRequestCount = 0 ;
+        user.otpRequestWindowStart = null;
+      }
+      if(user.otpRequestWindowStart && Date.now()  - user.otpRequestWindowStart <= 300000 && user.otpRequestCount >= 3 ) {
+        return res.status(429).json ({
+          message: "OTP request limit reached try after some times"
+        });
+      }
+      if(!user.otpRequestWindowStart) {
+        user.otpRequestWindowStart =Date.now();
+      }
+
+
+      user.otpRequestCount += 1 ; 
+      user.lastOtpSentAt = Date.now();
+      
+      
+      if(user.emailVerified) { 
+        // OTP generating 
+        const otpData= otpGenerator(); 
+        const emailOtp= otpData.otp; 
+        const emailOtpExpiresAt= otpData.expiresAt; 
+        user.emailOtp = emailOtp; 
+        user.emailOtpExpiresAt = emailOtpExpiresAt; 
+        user.emailOtpPurpose = "password_reset" ; 
+        // sending mail 
+        const subject = "Your one time verification code:"; 
+        const text = `Your OTP for password reset is : ${emailOtp} \n Do not share OTP with anyone`;
+        await sendEmail(email,subject,text); 
+      } 
       await user.save(); 
-      // sending mail 
-      const subject = "Your one time verification code:"; 
-      const text = `Your OTP for password reset is : ${emailOtp} \n Do not share OTP with anyone`;
-      await sendEmail(email,subject,text); 
-    } 
+    }
+
     return res.status(200).json ({ 
       message: "If the email exists, an OTP has been sent" 
     }); 
