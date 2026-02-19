@@ -166,52 +166,52 @@ const forgotPassword = async (req,res) => {
       }); 
     } 
     const user = await User.findOne({ email }); 
-    if(user) {
-      if(user.otpLockUntil && Date.now() < user.otpLockUntil) {
+    if(user && user.emailVerified) {
+      const now = Date.now();
+      if(user.otpLockUntil && now < user.otpLockUntil) {
         return res.status(429).json ({
           message: "Entered too many wrong OTP try after some times"
         });
       }
-      if(user.lastOtpSentAt) {
-        const cooldownTime =  Date.now() - user.lastOtpSentAt ;
-        if( cooldownTime <= 30000 ) {
-          return res.status(429).json ({
-            message: `wait : ${30000 - cooldownTime} second`
-          });
-        }
-      }
-      if(user.otpRequestWindowStart &&  Date.now() - user.otpRequestWindowStart > 300000 ) {
+      if(user.otpRequestWindowStart &&  now - user.otpRequestWindowStart > 300000 ) {
         user.otpRequestCount = 0 ;
         user.otpRequestWindowStart = null;
       }
-      if(user.otpRequestWindowStart && Date.now()  - user.otpRequestWindowStart <= 300000 && user.otpRequestCount >= 3 ) {
+      if(user.otpRequestWindowStart && now  - user.otpRequestWindowStart <= 300000 && user.otpRequestCount >= 3 ) {
         return res.status(429).json ({
           message: "OTP request limit reached try after some times"
         });
       }
       if(!user.otpRequestWindowStart) {
-        user.otpRequestWindowStart =Date.now();
+        user.otpRequestWindowStart = now ;
+      }
+      if(user.lastOtpSentAt) {
+        const cooldownTime =  now - user.lastOtpSentAt ;
+        if( cooldownTime < 30000 ) {
+          return res.status(429).json ({
+            message: `wait : ${30000 - cooldownTime} second`
+          });
+        }
       }
 
-
       user.otpRequestCount += 1 ; 
-      user.lastOtpSentAt = Date.now();
+      user.lastOtpSentAt = now ;
       
-      
-      if(user.emailVerified) { 
-        // OTP generating 
-        const otpData= otpGenerator(); 
-        const emailOtp= otpData.otp; 
-        const emailOtpExpiresAt= otpData.expiresAt; 
-        user.emailOtp = emailOtp; 
-        user.emailOtpExpiresAt = emailOtpExpiresAt; 
-        user.emailOtpPurpose = "password_reset" ; 
-        // sending mail 
-        const subject = "Your one time verification code:"; 
-        const text = `Your OTP for password reset is : ${emailOtp} \n Do not share OTP with anyone`;
-        await sendEmail(email,subject,text); 
-      } 
-      await user.save(); 
+      // OTP generating 
+      const otpData= otpGenerator(); 
+      const emailOtp= otpData.otp; 
+      const emailOtpExpiresAt= otpData.expiresAt; 
+      user.emailOtp = emailOtp; 
+      user.emailOtpExpiresAt = emailOtpExpiresAt; 
+      user.emailOtpPurpose = "password_reset" ; 
+      user.otpFailedAttempts = 0;
+      await user.save();
+
+
+      // sending mail 
+      const subject = "Your one time verification code:"; 
+      const text = `Your OTP for password reset is : ${emailOtp} \n Do not share OTP with anyone`;
+      await sendEmail(email,subject,text); 
     }
 
     return res.status(200).json ({ 
@@ -246,6 +246,12 @@ const resetPassword = async (req, res) => {
         message: "Invalid OTP or Email" 
       }); 
     } 
+    const now = Date.now();
+    if(user.otpLockUntil && now < user.otpLockUntil) {
+      return res.status(429).json ({
+        message: "Entered too many wrong OTP try after some times"
+      });
+    }
     if(!user.emailOtp) { 
       return res.status(400).json ({ 
         message: "Invalid OTP or Email" 
@@ -262,11 +268,19 @@ const resetPassword = async (req, res) => {
       }); 
     } 
     if(user.emailOtp != Number(otp) ) { 
+      user.otpFailedAttempts += 1;
+      if(user.otpFailedAttempts >= 3) {
+        const delay = Math.min(
+          60000 * Math.pow(2, user.otpFailedAttempts - 1),
+          1800000
+        );
+        user.otpLockUntil = now + delay;
+      }
+      await user.save(); 
       return res.status(400).json ({ 
         message: "Invalid OTP or Email" 
       }); 
     }
-
     const validate = validatePassword(newPassword);
     if(!validate.valid) {
       return res.status(400).json({
@@ -280,6 +294,8 @@ const resetPassword = async (req, res) => {
     user.emailOtp = null; 
     user.emailOtpExpiresAt = null; 
     user.emailOtpPurpose = null; 
+    user.otpFailedAttempts = 0;
+    user.otpLockUntil = null;
     await user.save(); 
     return res.status(200).json ({ 
       message: "Password reset successfull. Please login" 
