@@ -26,7 +26,14 @@ const registerUser = async (req, res) => {
         message: 'User already exists',
       });
     }
+    const trimmedName = name.trim();
 
+    if (!/^[A-Za-z\s]+$/.test(trimmedName)) {
+      return res.status(400).json({
+        message: "Name must contain only letters and spaces"
+      });
+    }
+    
     const validate = validatePassword(password);
     if(!validate.valid) {
       return res.status(400).json({
