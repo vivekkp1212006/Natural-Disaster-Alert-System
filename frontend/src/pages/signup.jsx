@@ -47,6 +47,8 @@ const Signup = () =>  {
         const hasUpperCase = /[A-Z]/.test(password);
         const hasLowerCase = /[a-z]/.test(password);
         const hasSpecialChar = /[^a-zA-Z0-9]/.test(password);
+        const trimmeName  = name.trim();
+        const nameRegex = /^[A-Za-z\s]+$/.test(trimmeName);
 
         if (!location.latitude || !location.longitude) {
             setMessage("Location is required to register");
@@ -64,7 +66,10 @@ const Signup = () =>  {
             setMessage(`Too weak password \nPassword rules \nOne upper case character \nOne lowercase character \nOne special character \n atleast 8 characters`);
             return;
         } 
-         
+        if(!nameRegex) {
+            setMessage("Name must contain only letters and spaces");
+            return;
+        }
         //disable the subit button
         setIsSubmitting(true);
 
