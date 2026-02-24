@@ -2,6 +2,7 @@ import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
+import "./style.css";
 
 const Signup = () =>  {
     const [name, setName] = useState("");
@@ -93,9 +94,11 @@ const Signup = () =>  {
         }
     };
     return (
-        <div>
+        <div className="login-container">
+            <div className="login-box">
             <h2>Sign-Up</h2>
             <form onSubmit={handleSubmit}>
+              <div className="form-group">
                 <input
                     type="text"
                     placeholder="Name"
@@ -103,6 +106,9 @@ const Signup = () =>  {
                     required
                     onChange={(e) => setName(e.target.value)}
                 /><br></br>
+                </div>
+
+                <div className="form-group">
                 <input
                     type="email"
                     placeholder="email"
@@ -110,6 +116,9 @@ const Signup = () =>  {
                     required
                     onChange={ (e) => setEmail(e.target.value)}
                 /><br></br>
+                </div>
+
+                <div className="form-group">
                 <input
                     type="password"
                     placeholder="password"
@@ -117,6 +126,9 @@ const Signup = () =>  {
                     required
                     onChange={ (e)=> setPassword(e.target.value)}
                 /><br></br>
+                </div>
+
+                <div className="form-group">
                 <input
                     type="password"
                     placeholder="Confirm password"
@@ -124,14 +136,18 @@ const Signup = () =>  {
                     required
                     onChange={ (e) => setConfirmPassword(e.target.value)}
                 /><br />
-                <button type="submit" disabled={isSubmitting}>
+                </div>
+
+                <button type="submit" disabled={isSubmitting} className="login-button">
                     Sign-Up
                 </button>
+              
             </form>
             <p>
                 Already have an account? <Link to={"/login"}>Log in</Link>
             </p>
-            <p>{isSubmitting ? "Processing..." : message }</p>
+            <p className="pass-sec-message" style={{whitespace: 'pre-line'}}>{isSubmitting ? "Processing..." : message }</p>
+            </div>
         </div>
     );
 };
