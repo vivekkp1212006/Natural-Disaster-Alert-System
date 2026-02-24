@@ -17,7 +17,7 @@ const VerifyOtp = () => {
     e.preventDefault();
     // API call will come next
     try{
-        const res = await axios.post("http://localhost:5000/api/auth/verify-email", {email, otp});
+        const res = await axios.post("http://localhost:5001/api/auth/verify-email", {email, otp});
         setMessage(res.data.message);
         localStorage.removeItem("pendingEmail");
         if(res.data.message === "Email verified successfully") {

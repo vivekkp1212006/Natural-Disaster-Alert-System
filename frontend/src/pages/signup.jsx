@@ -53,6 +53,7 @@ const Signup = () => {
         }
 
         try {
+<<<<<<< Updated upstream
             const res = await axios.post("http://localhost:5000/api/auth/register", {
                 name,
                 email,
@@ -62,6 +63,9 @@ const Signup = () => {
                     lng: location.longitude,
                 },
             });
+=======
+            const res = await axios.post("http://localhost:5001/api/auth/register", {name, email, password, location: {lat: location.latitude, lng: location.longitude,},});
+>>>>>>> Stashed changes
             setMessage(res.data.message);
             setMessageType("success");
             localStorage.setItem("pendingEmail", email);
