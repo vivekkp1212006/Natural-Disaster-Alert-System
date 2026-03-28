@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 const ForgotPassword = () => {
     const [email, setEmail] = useState("");
     const [message, setMessage] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState("");
 
     const navigate = useNavigate();
 
@@ -18,6 +19,7 @@ const ForgotPassword = () => {
             setMessage("Email required");
             return;
         }
+        setIsSubmitting(true);
         try {
             const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/forgot-password`, {email} );
             setMessage(res.data.message);
@@ -32,6 +34,10 @@ const ForgotPassword = () => {
                 setMessage("Something went wrong. Try again later");
             }
         }
+        finally {
+            setIsSubmitting(false);
+            setMessage(`${process.env.REACT_APP_API_URL}/api/auth/forgot-password`);
+        }
     };
 
     return (
@@ -45,11 +51,11 @@ const ForgotPassword = () => {
                     required
                     onChange={ (e) => setEmail(e.target.value)}
                 />
-                <button type="submit">
+                <button type="submit" disabled={isSubmitting}>
                     Send OTP
                 </button>
             </form>
-            <p>{message}</p>
+            <p>{isSubmitting ? "Processing" : message}</p>
         </div>
     );
 }
