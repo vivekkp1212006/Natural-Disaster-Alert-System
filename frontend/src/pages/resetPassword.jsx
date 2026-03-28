@@ -48,7 +48,7 @@ const ResetPassword = () => {
         setIsSubmitting(true);
 
         try {
-        const res = await axios.post("http://localhost:5000/api/auth/reset-password",{email, otp, newPassword});
+        const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/reset-password`,{email, otp, newPassword});
         setMessage(res.data.message);
         localStorage.removeItem("resetEmail");
         navigate("/login");
