@@ -95,7 +95,7 @@ const Signup = () =>  {
     };
     return (
         <div className="login-container">
-            <div className="login-box">
+           <div className="login-box">
             <h2>Sign-Up</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">

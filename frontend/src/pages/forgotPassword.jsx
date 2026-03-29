@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import "./style.css";
 
 const ForgotPassword = () => {
     const [email, setEmail] = useState("");
@@ -21,7 +22,7 @@ const ForgotPassword = () => {
         }
         setIsSubmitting(true);
         try {
-            const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/forgot-password`, {email} );
+            const res = await axios.post("http://localhost:5001/api/auth/forgot-password", {email} );
             setMessage(res.data.message);
             localStorage.setItem("resetEmail",email);
             navigate("/reset-password")
@@ -40,9 +41,11 @@ const ForgotPassword = () => {
     };
 
     return (
-        <div>
+        <div className="login-container">
+            <div className="login-box">
             <h2>Forgot Password</h2><br/>
             <form onSubmit={handleSubmit}>
+                <div className="form-group">
                 <input 
                     type="email"
                     placeholder="email"
@@ -50,11 +53,21 @@ const ForgotPassword = () => {
                     required
                     onChange={ (e) => setEmail(e.target.value)}
                 />
+<<<<<<< HEAD
                 <button type="submit" disabled={isSubmitting}>
                     Send OTP
                 </button>
             </form>
             <p>{isSubmitting ? "Processing" : message}</p>
+=======
+                </div>
+                <button type="submit" className="login-button">
+                    Send OTP
+                </button>
+            </form>
+            </div>
+            <p>{message}</p>
+>>>>>>> 9c3e531 (all page css added)
         </div>
     );
 }
