@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "./style.css";
@@ -6,36 +6,40 @@ import "./style.css";
 const ForgotPassword = () => {
     const [email, setEmail] = useState("");
     const [message, setMessage] = useState("");
-    const [isSubmitting, setIsSubmitting] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const navigate = useNavigate();
 
     useEffect(() => {
         localStorage.removeItem("pendingEmail");
-    },[]);
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if ( !email ) {
+
+        if (!email) {
             setMessage("Email required");
             return;
         }
+
         setIsSubmitting(true);
+
         try {
-            const res = await axios.post("http://localhost:5001/api/auth/forgot-password", {email} );
+            const res = await axios.post(
+                "http://localhost:5001/api/auth/forgot-password",
+                { email }
+            );
+
             setMessage(res.data.message);
-            localStorage.setItem("resetEmail",email);
-            navigate("/reset-password")
-        }
-        catch (err) {
-            if( err.response && err.response.data ) {
+            localStorage.setItem("resetEmail", email);
+            navigate("/reset-password");
+        } catch (err) {
+            if (err.response && err.response.data) {
                 setMessage(err.response.data.message);
-            }
-            else {
+            } else {
                 setMessage("Something went wrong. Try again later");
             }
-        }
-        finally {
+        } finally {
             setIsSubmitting(false);
         }
     };
@@ -43,33 +47,28 @@ const ForgotPassword = () => {
     return (
         <div className="login-container">
             <div className="login-box">
-            <h2>Forgot Password</h2><br/>
-            <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                <input 
-                    type="email"
-                    placeholder="email"
-                    value={email}
-                    required
-                    onChange={ (e) => setEmail(e.target.value)}
-                />
-<<<<<<< HEAD
-                <button type="submit" disabled={isSubmitting}>
-                    Send OTP
-                </button>
-            </form>
-            <p>{isSubmitting ? "Processing" : message}</p>
-=======
-                </div>
-                <button type="submit" className="login-button">
-                    Send OTP
-                </button>
-            </form>
+                <h2>Forgot Password</h2>
+
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <input
+                            type="email"
+                            placeholder="email"
+                            value={email}
+                            required
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
+                    </div>
+
+                    <button type="submit" disabled={isSubmitting} className="login-button">
+                        {isSubmitting ? "Processing..." : "Send OTP"}
+                    </button>
+                </form>
+
+                <p>{message}</p>
             </div>
-            <p>{message}</p>
->>>>>>> 9c3e531 (all page css added)
         </div>
     );
-}
+};
 
 export default ForgotPassword;
