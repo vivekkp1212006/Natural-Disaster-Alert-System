@@ -77,7 +77,7 @@ const Signup = () =>  {
         try {
             const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/register`, {name, email, password, location: {lat: location.latitude, lng: location.longitude,},});
             setMessage(res.data.message);
-            localStorage.setItem("pendingEmail", email);
+            sessionStorage.setItem("pendingEmail", email);
             navigate("/verify-otp");
         }
         catch (err) {

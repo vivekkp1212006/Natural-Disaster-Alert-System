@@ -10,7 +10,7 @@ const ResetPassword = () => {
     const [message, setMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const email = localStorage.getItem("resetEmail");
+    const email = sessionStorage.getItem("resetEmail");
 
     const navigate = useNavigate();
 
@@ -51,7 +51,7 @@ const ResetPassword = () => {
         try {
         const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/reset-password`,{email, otp, newPassword});
         setMessage(res.data.message);
-        localStorage.removeItem("resetEmail");
+        sessionStorage.removeItem("resetEmail");
         navigate("/login");
         }
         catch(err) {

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { login } from "../services/authService";
 import "./style.css";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -9,7 +10,7 @@ const Login = () => {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const navigate = useNavigate();
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -20,7 +21,8 @@ const Login = () => {
       const data = await login(email, password);
       setMessage(data.message);
       setMessageType("success");
-      localStorage.setItem("token", data.token);
+      sessionStorage.setItem("token", data.token);
+      navigate("/my-alerts")
     } catch (err) {
       setMessageType("error");
       if (err.response && err.response.data) {

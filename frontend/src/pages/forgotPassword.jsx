@@ -11,8 +11,8 @@ const ForgotPassword = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        localStorage.removeItem("pendingEmail");
-    }, []);
+        sessionStorage.removeItem("pendingEmail");
+    },[]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -31,10 +31,11 @@ const ForgotPassword = () => {
             );
 
             setMessage(res.data.message);
-            localStorage.setItem("resetEmail", email);
-            navigate("/reset-password");
-        } catch (err) {
-            if (err.response && err.response.data) {
+            sessionStorage.setItem("resetEmail",email);
+            navigate("/reset-password")
+        }
+        catch (err) {
+            if( err.response && err.response.data ) {
                 setMessage(err.response.data.message);
             } else {
                 setMessage("Something went wrong. Try again later");
