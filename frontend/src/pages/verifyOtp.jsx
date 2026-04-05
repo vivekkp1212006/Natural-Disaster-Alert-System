@@ -8,7 +8,7 @@ const VerifyOtp = () => {
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
-  const email = localStorage.getItem("pendingEmail");
+  const email = sessionStorage.getItem("pendingEmail");
     if(!email) {
         return <p>Session expired. Please register again.</p>;
     }
@@ -19,7 +19,7 @@ const VerifyOtp = () => {
     try{
         const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/verify-email`, {email, otp});
         setMessage(res.data.message);
-        localStorage.removeItem("pendingEmail");
+        sessionStorage.removeItem("pendingEmail");
         if(res.data.message === "Email verified successfully") {
             navigate("/login");
         }

@@ -10,7 +10,7 @@ const ForgotPassword = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        localStorage.removeItem("pendingEmail");
+        sessionStorage.removeItem("pendingEmail");
     },[]);
 
     const handleSubmit = async (e) => {
@@ -23,7 +23,7 @@ const ForgotPassword = () => {
         try {
             const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/forgot-password`, {email} );
             setMessage(res.data.message);
-            localStorage.setItem("resetEmail",email);
+            sessionStorage.setItem("resetEmail",email);
             navigate("/reset-password")
         }
         catch (err) {

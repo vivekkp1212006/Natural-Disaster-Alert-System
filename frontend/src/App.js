@@ -5,6 +5,7 @@ import VerifyOtp from "./pages/verifyOtp";
 import Signup from "./pages/signup";
 import ForgotPassword from "./pages/forgotPassword";
 import ResetPassword from "./pages/resetPassword";
+import GetMyAlerts  from "./pages/myAlerts";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/verify-otp" element={<VerifyOtp />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/my-alerts" element={<GetMyAlerts />} />
       </Routes>
     </Router>
   );
