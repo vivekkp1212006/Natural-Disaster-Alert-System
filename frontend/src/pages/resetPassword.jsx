@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import "./style.css";
 
 const ResetPassword = () => {
     const [otp, setOtp] = useState("");
@@ -69,34 +70,45 @@ const ResetPassword = () => {
     };
     
     return (
-        <div>
-            <form onSubmit={handleSubmit}>
-                <input
-                    type="text"
-                    placeholder="OTP"
-                    value={otp}
-                    required
-                    onChange={ (e) => setOtp(e.target.value)}
-                />
-                <input
-                    type="password"
-                    placeholder="New password"
-                    value={newPassword}
-                    required
-                    onChange={ (e) => setNewPassword(e.target.value)}
-                />
-                <input
-                    type="password"
-                    placeholder="Confirm password"
-                    value={confirmPassword}
-                    required
-                    onChange={ (e) => setConfirmPassword(e.target.value)}
-                />
-                <button type="submit" disabled={isSubmitting}>
-                    Reset password
-                </button>
-            </form>
-            <p>{isSubmitting ? "Processing..." : message }</p>
+        <div className="login-container">
+           <div className="login-box">
+                <form onSubmit={handleSubmit}>
+                   <div className="form-group">
+                    <input
+                        type="text"
+                        placeholder="OTP"
+                        value={otp}
+                        required
+                        onChange={ (e) => setOtp(e.target.value)}
+                    />
+                   </div>
+
+                   <div className="form-group"> 
+                    <input
+                        type="password"
+                        placeholder="New password"
+                        value={newPassword}
+                        required
+                        onChange={ (e) => setNewPassword(e.target.value)}
+                    />
+                   </div>
+
+                   <div className="form-group"> 
+                    <input
+                        type="password"
+                        placeholder="Confirm password"
+                        value={confirmPassword}
+                        required
+                        onChange={ (e) => setConfirmPassword(e.target.value)}
+                    />
+                   </div>
+
+                    <button type="submit" disabled={isSubmitting} className="login-button">
+                        Reset password
+                    </button>
+                </form>
+                <p>{isSubmitting ? "Processing..." : message }</p>
+           </div> 
         </div>
     );
 }

@@ -1,7 +1,9 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-
+const { otpGenerator } = require('../utils/generateOtp');
+const { sendEmail } = require('../utils/sendEmail');
+const validatePassword = require('../utils/validatePassword');
 
 // @desc   Register new user
 // @route  POST /api/auth/register
@@ -11,7 +13,7 @@ const registerUser = async (req, res) => {
     const { name, email, password, location, role } = req.body;
 
     // 1. Check required fields
-    if (!name || !email || !password ) {
+    if (!name || !email || !password || !location ) {
       return res.status(400).json({
         message: 'Please fill all required fields',
       });
@@ -19,15 +21,58 @@ const registerUser = async (req, res) => {
 
     // 2. Check if user already exists
     const userExists = await User.findOne({ email });
-    if (userExists) {
+    if (userExists && userExists.emailVerified) {
       return res.status(400).json({
         message: 'User already exists',
+      });
+    }
+    const trimmedName = name.trim();
+
+    if (!/^[A-Za-z\s]+$/.test(trimmedName)) {
+      return res.status(400).json({
+        message: "Name must contain only letters and spaces"
+      });
+    }
+    
+    const validate = validatePassword(password);
+    if(!validate.valid) {
+      return res.status(400).json({
+        message: validate.message
+      });
+    }
+
+    if (userExists && !userExists.emailVerified) {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt)
+
+
+      const otpData= otpGenerator();
+      const emailOtp= otpData.otp;
+      const emailOtpExpiresAt= otpData.expiresAt;
+
+      userExists.password = hashedPassword;
+      userExists.emailOtp = emailOtp;
+      userExists.emailOtpExpiresAt = emailOtpExpiresAt;
+      userExists.emailOtpPurpose = "signup" ;
+      await userExists.save();
+
+      const subject = "Your one time verification code:";
+      const text = `Your OTP for sign-up is : ${emailOtp}`;
+      await sendEmail(email,subject,text);
+
+      return res.status(201).json({
+        message: `OTP sent to ${email}`,
       });
     }
 
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt)
+
+    // OTP generating
+    const otpData= otpGenerator();
+    const emailOtp= otpData.otp;
+    const emailOtpExpiresAt= otpData.expiresAt;
 
     // 3. Create new user
     const user = await User.create({
@@ -36,25 +81,239 @@ const registerUser = async (req, res) => {
       password: hashedPassword,
       location,
       role, // optional (defaults to 'user')
+      emailOtp,
+      emailOtpExpiresAt,
+      emailOtpPurpose: "signup",
+      emailVerified: false,
     });
 
-    // 4. Send response
-    res.status(201).json({
-      message: 'User registered successfully',
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        location: user.location,
-      },
-    });
+      const subject = "Your one time verification code:";
+      const text = `Your OTP for sign-up is : ${emailOtp}`;
+      await sendEmail(email,subject,text);
+
+      return res.status(201).json({
+        message: `OTP sent to ${email}`,
+      });
+
   } catch (error) {
     res.status(500).json({
       message: 'Server error',
       error: error.message,
     });
   }
+};
+
+
+//@desc    Email verification
+const verifyEmailOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        message: "Email and OTP are required",
+      });
+    }
+
+    // logic will come next
+    const user = await User.findOne({ email});
+
+    if(!user) {
+      return res.status(400).json ({
+        message : "User not found"
+      });
+    }
+    if(user.emailVerified) {
+      return res.status(400).json ({
+        message : "Email already verified"
+      });
+    }
+
+    if(Number(otp) != user.emailOtp) {
+      return res.status(400).json ({
+        message : "Invalid OTP"
+      });
+    }
+    if(user.emailOtpExpiresAt < Date.now()) {
+      return res.status(400).json ({
+        message : "OTP Expired"
+      });
+    }
+    if(user.emailOtpPurpose != 'signup') {
+      return res.status(400).json ({
+        message : "Invalid OTP"
+      });
+    }
+
+    user.emailVerified = true;
+    user.emailOtp = null;
+    user.emailOtpExpiresAt = null;
+    user.emailOtpPurpose = null;;
+    await user.save();
+
+    return res.status(200).json ({
+      message : "Email verified successfully"
+    })
+
+  } catch (error) {
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+//forgot password 
+const forgotPassword = async (req,res) => { 
+  try { 
+    const {email} = req.body; 
+    if (!email) { 
+      return res.status(400).json({ 
+        message: "Email required" 
+      }); 
+    } 
+    const user = await User.findOne({ email }); 
+    if(user && user.emailVerified) {
+      const now = Date.now();
+      if(user.otpLockUntil && now < user.otpLockUntil) {
+        return res.status(429).json ({
+          message: "Entered too many wrong OTP try after some times"
+        });
+      }
+      if(user.otpRequestWindowStart &&  now - user.otpRequestWindowStart > 300000 ) {
+        user.otpRequestCount = 0 ;
+        user.otpRequestWindowStart = null;
+      }
+      if(user.otpRequestWindowStart && now  - user.otpRequestWindowStart <= 300000 && user.otpRequestCount >= 3 ) {
+        return res.status(429).json ({
+          message: "OTP request limit reached try after some times"
+        });
+      }
+      if(!user.otpRequestWindowStart) {
+        user.otpRequestWindowStart = now ;
+      }
+      if(user.lastOtpSentAt) {
+        const cooldownTime =  now - user.lastOtpSentAt ;
+        if( cooldownTime < 30000 ) {
+          return res.status(429).json ({
+            message: `wait : ${30000 - cooldownTime} second`
+          });
+        }
+      }
+
+      user.otpRequestCount += 1 ; 
+      user.lastOtpSentAt = now ;
+      
+      // OTP generating 
+      const otpData= otpGenerator(); 
+      const emailOtp= otpData.otp; 
+      const emailOtpExpiresAt= otpData.expiresAt; 
+      user.emailOtp = emailOtp; 
+      user.emailOtpExpiresAt = emailOtpExpiresAt; 
+      user.emailOtpPurpose = "password_reset" ; 
+      user.otpFailedAttempts = 0;
+      await user.save();
+
+
+      // sending mail 
+      const subject = "Your one time verification code:"; 
+      const text = `Your OTP for password reset is : ${emailOtp} \n Do not share OTP with anyone`;
+      await sendEmail(email,subject,text); 
+    }
+
+    return res.status(200).json ({ 
+      message: "If the email exists, an OTP has been sent" 
+    }); 
+  } 
+  catch(error) { 
+    res.status(500).json ({ 
+      message: "Server error", 
+      error:error.message, 
+    }); 
+  } 
+};
+
+// @desc Reset password using OTP 
+const resetPassword = async (req, res) => { 
+  try { 
+    const { email, otp, newPassword } = req.body; 
+    if(!email || !otp || !newPassword) { 
+      return res.status(400).json ({ 
+        message: "Bad request" 
+      }); 
+    } 
+    const user = await User.findOne({ email }); 
+    if(!user) { 
+      return res.status(400).json({ 
+        message: "Invalid OTP or Email" 
+      }); 
+    } 
+    if(!user.emailVerified) { 
+      return res.status(400).json ({ 
+        message: "Invalid OTP or Email" 
+      }); 
+    } 
+    const now = Date.now();
+    if(user.otpLockUntil && now < user.otpLockUntil) {
+      return res.status(429).json ({
+        message: "Entered too many wrong OTP try after some times"
+      });
+    }
+    if(!user.emailOtp) { 
+      return res.status(400).json ({ 
+        message: "Invalid OTP or Email" 
+      }); 
+    } 
+    if( !user.emailOtpExpiresAt || user.emailOtpExpiresAt < Date.now() ) { 
+      return res.status(400).json ({ 
+        message: "Invalid OTP or Email" 
+      }); 
+    } 
+    if(user.emailOtpPurpose != "password_reset" ) { 
+      return res.status(400).json ({ 
+        message: "Invalid OTP or Email" 
+      }); 
+    } 
+    if(user.emailOtp != Number(otp) ) { 
+      user.otpFailedAttempts += 1;
+      if(user.otpFailedAttempts >= 3) {
+        const delay = Math.min(
+          60000 * Math.pow(2, user.otpFailedAttempts - 1),
+          1800000
+        );
+        user.otpLockUntil = now + delay;
+      }
+      await user.save(); 
+      return res.status(400).json ({ 
+        message: "Invalid OTP or Email" 
+      }); 
+    }
+    const validate = validatePassword(newPassword);
+    if(!validate.valid) {
+      return res.status(400).json({
+        message: validate.message
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10); 
+    const hashedPassword = await bcrypt.hash(newPassword, salt); 
+    user.password = hashedPassword; 
+    user.emailOtp = null; 
+    user.emailOtpExpiresAt = null; 
+    user.emailOtpPurpose = null; 
+    user.otpFailedAttempts = 0;
+    user.otpLockUntil = null;
+    await user.save(); 
+    return res.status(200).json ({ 
+      message: "Password reset successfull. Please login" 
+    }); 
+  } 
+  catch (error) { 
+    res.status(500).json({ 
+      message: "Server error", 
+      error: error.message, 
+    }); 
+  } 
 };
 
 // @desc   Login user
@@ -76,6 +335,13 @@ const loginUser = async (req, res) => {
     if (!user) {
       return res.status(401).json({
         message: 'Invalid credentials',
+      });
+    }
+
+    //    check the email is verified or not
+    if(!user.emailVerified) {
+      return res.status(401).json({
+        message: "Please verify your email before logging in"
       });
     }
 
@@ -352,4 +618,5 @@ const rejectRoleRequest = async (req, res) => {
 
 
 
-module.exports = { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, requestRoleUpgrade, getPendingRoleRequests, approveRoleRequest, rejectRoleRequest };
+module.exports = { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, requestRoleUpgrade, getPendingRoleRequests, approveRoleRequest, rejectRoleRequest, 
+                   verifyEmailOtp, forgotPassword, resetPassword };

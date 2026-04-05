@@ -1,7 +1,7 @@
 import axios from "axios";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
+import "./style.css";
 
 const VerifyOtp = () => {
   const [otp, setOtp] = useState("");
@@ -32,21 +32,24 @@ const VerifyOtp = () => {
 
     
   return (
-    <div>
-      <h2>Email Verification</h2>
+    <div className="login-container">
+      <div className="login-box">
+          <h2>Email Verification</h2>
 
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="Enter OTP"
-          value={otp}
-          onChange={(e) => setOtp(e.target.value)}
-        />
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+                <input
+                  type="text"
+                  placeholder="Enter OTP"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                />
+          </div>
+            <button type="submit">Verify</button>
+          </form>
 
-        <button type="submit">Verify</button>
-      </form>
-
-      {message && <p>{message}</p>}
+          {message && <p>{message}</p>}
+      </div>
     </div>
   );
 };

@@ -1,12 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const { registerUser, loginUser, getProfile, adminRoute, volunteerRoute } = require('../controllers/authController');
+const { registerUser, loginUser, getProfile, adminRoute, volunteerRoute, verifyEmailOtp, forgotPassword, resetPassword } = require('../controllers/authController');
 const {protect} = require('../middleware/authMiddleware');
 const {authorizeRoles} = require('../middleware/roleMiddleware');
+const {limit} = require('../middleware/rateLimiter');
 
 // POST /api/auth/register
 router.post('/register', registerUser);
 router.post('/login', loginUser);
+router.post('/verify-email', limit, verifyEmailOtp);
+router.post('/forgot-password', limit, forgotPassword);
+router.post('/reset-password', limit, resetPassword);
 
 //protected routes
 
