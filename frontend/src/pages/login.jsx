@@ -22,7 +22,6 @@ const Login = () => {
       setMessage(data.message);
       setMessageType("success");
       sessionStorage.setItem("token", data.token);
-      sessionStorage.setItem("user", JSON.stringify(data.user));
       navigate("/my-alerts")
     } catch (err) {
       setMessageType("error");
