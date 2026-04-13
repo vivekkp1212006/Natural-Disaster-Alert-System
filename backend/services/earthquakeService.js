@@ -21,6 +21,7 @@ const fetchNearbyEarthquakes = async (userLat, userLng) => {
     longitude: quake.geometry.coordinates[0],
   }));
 
+  
   return earthquakes.filter((quake) => {
     const radiusKm = getAlertRadius(quake.magnitude);
 
