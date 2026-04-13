@@ -1,7 +1,6 @@
-import React, {useCallback, useEffect,useState} from "react";
+import React, {useEffect,useState} from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import "./login.css";
 
 const GetMyAlerts = () => {
     const navigate = useNavigate();
@@ -9,17 +8,11 @@ const GetMyAlerts = () => {
     const [isSubmitting,setIsSubmitting] = useState(false);
     const [message,setMessage] = useState("");
     const [alerts,setAlerts]= useState([]);
-    const [viewMode, setViewMode] = useState("active");
-
-    const getAlerts = useCallback(async (mode) => {
+    const getAlerts = async () => {
         try {
             setIsSubmitting(true);
-            const endpoint = mode === "history" ? "/api/alerts/me/history" : "/api/alerts/me";
-            const res = await axios.get(`${process.env.REACT_APP_API_URL}${endpoint}`, {
-                headers: {Authorization : `Bearer ${token}`}
-            });
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/alerts/me`, {headers: {Authorization : `Bearer ${token}`}});
             setAlerts(res.data.alerts || []);
-            setMessage("");
         } catch (err) {
             if(err.response && err.response.data ) {
                 setMessage(err.response.data.message)
@@ -31,50 +24,28 @@ const GetMyAlerts = () => {
         finally {
             setIsSubmitting(false);
         }
-    }, [token]);
+    };
     useEffect( ()=>{
         if(! token) {
             navigate("/login");
             return ;
         }
-        getAlerts(viewMode);
-    },[navigate, token, viewMode, getAlerts]);
-
-    const handleLogout = () => {
-        sessionStorage.removeItem("token");
-        sessionStorage.removeItem("user");
-        navigate("/login");
-    };
+        getAlerts();
+    },[navigate, token]);
 
     
     
     return (
-        <div className="login-container">
-            <div className="login-box">
-            <h2>My Alerts</h2>
-            <div style={{display:"flex", gap:"8px", marginBottom:"15px"}}>
-                <button className="login-button" onClick={() => setViewMode("active")}>
-                    Active Alerts
-                </button>
-                <button className="login-button" onClick={() => setViewMode("history")}>
-                    Alert History
-                </button>
-            </div>
-
+        <div>
             {alerts.length > 0 ? (
             <ul>
                 {alerts.map((alert, index) => (
                     <li key={index}>
-                        <p>
-                            Risk: {alert.riskLevel} | Type: {alert.type}<br />
-                            Expires: {new Date(alert.expiresAt).toLocaleString()}
-                        </p>
+                        <p>You have a {alert.riskLevel} risk {alert.type} . please be cautious. expires:{alert.expiresAt}</p>
                     </li>
                 ))}
             </ul>
             ):(<p>{isSubmitting? "processing" : message? message : "No active alerts"}</p>)}
-            <button className="login-button" onClick={handleLogout}>Logout</button>
-            </div>
         </div>
     )
 }
