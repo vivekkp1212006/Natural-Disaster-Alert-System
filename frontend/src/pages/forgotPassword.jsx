@@ -36,7 +36,6 @@ const ForgotPassword = () => {
         }
         finally {
             setIsSubmitting(false);
-            setMessage(`${process.env.REACT_APP_API_URL}/api/auth/forgot-password`);
         }
     };
 

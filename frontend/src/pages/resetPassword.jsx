@@ -18,7 +18,7 @@ const ResetPassword = () => {
             setMessage("Unauthorized access");
             navigate("/forgot-password");
         }
-    },[]);
+    },[email, navigate]);
     
     const handleSubmit = async (e) => {
         e.preventDefault();
