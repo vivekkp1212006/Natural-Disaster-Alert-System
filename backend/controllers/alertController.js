@@ -22,4 +22,33 @@ const getMyActiveAlerts = async (req, res) => {
   }
 };
 
-module.exports = { getMyActiveAlerts };
+// GET /api/alerts/me/history — all alerts (including expired)
+const getMyAlertHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const alerts = await Alert.find({ user: userId }).sort({ createdAt: -1 });
+
+    res.json({ alerts });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// GET /api/alerts/admin/all — admin alert monitoring
+const getAllAlertsForAdmin = async (req, res) => {
+  try {
+    const alerts = await Alert.find().sort({ createdAt: -1 });
+    res.json({ alerts });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+module.exports = { getMyActiveAlerts, getMyAlertHistory, getAllAlertsForAdmin };
