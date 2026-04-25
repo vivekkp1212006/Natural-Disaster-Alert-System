@@ -88,3 +88,198 @@
     color: #3c3;
     border: 1px solid #cfc;
 }
+
+.login-container {
+    position: relative; 
+}
+
+.aegis-logo-top {
+    position: absolute;
+    top: 20px; 
+    left: 50%;
+    transform: translateX(-50%); 
+    width: 180px; 
+    height: auto;
+}
+
+.top-navbar img {
+    height: 60px !important;
+    width: auto !important;
+    position: static !important;
+    transform: none !important;
+}
+
+/*ui styling */
+
+/* HOME PAGE BASE */
+.home-container {
+    height: 100vh;
+    width: 100%;
+    position: relative;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* TOP NAVBAR */
+/* TOP NAVBAR FIXED */
+.top-navbar {
+    position: fixed;
+    top: 0;
+    left: 60px; /* push after sidebar */
+    width: calc(100% - 60px); /* avoid overlap */
+
+    height: 60px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 12px;
+
+    backdrop-filter: blur(10px);
+    background: rgba(0, 0, 0, 0.15); /* FIXED (see issue 4) */
+
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+
+    z-index: 1000;
+}
+
+/* SOS BUTTON */
+.sos-button {
+    height: 18px;
+    padding: 0 10px;
+    font-size: 10px;
+    font-weight: bold;
+
+    border: none;
+    border-radius: 20px;
+
+    background: linear-gradient(135deg, #ff416c, #ff4b2b);
+    color: white;
+
+    cursor: pointer;
+
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sos-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 10px rgba(255, 75, 43, 0.6);
+}
+
+/* LEFT SIDEBAR */
+/* LEFT SIDEBAR */
+.side-navbar {
+    position: fixed;
+    left: 0;
+
+    width: 60px; /* FIXED */
+    height: calc(100%);
+
+    backdrop-filter: blur(10px);
+    background: rgba(255,255,255,0.05);
+
+    box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+
+    transition: width 0.3s ease;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    overflow: hidden;
+}
+
+/* EXPANDED */
+.side-navbar.expanded {
+    width: 200px;
+    align-items: flex-start;
+}
+
+/* MENU ICON */
+.menu-icon {
+    height: 50px;
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 20px; /* bigger */
+    color: white;
+
+    cursor: pointer;
+
+    transition: transform 0.2s;
+}
+.menu-icon:hover {
+    transform: scale(1.15);
+}
+
+/* MENU ITEMS FULL HEIGHT */
+.menu-items {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+
+    width: 100%;
+    height: 100%;
+}
+
+/* ITEM */
+.menu-item {
+    width: 100%;
+    height: 50px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 10px;
+
+    color: white;
+    cursor: pointer;
+
+    transition: all 0.2s ease;
+}
+
+/* ICON */
+.menu-item .icon {
+    font-size: 18px;
+    min-width: 40px;
+
+    display: flex;
+    justify-content: center;
+}
+
+/* LABEL */
+.menu-item .label {
+    margin-left: 10px;
+    font-size: 14px;
+}
+
+/* HOVER EFFECT */
+.menu-item:hover {
+    background: rgba(255,255,255,0.1);
+    transform: scale(1.05);
+}
+
+/* ICON */
+.menu-item .icon {
+    font-size: 14px;
+    min-width: 25px;
+    display: flex;
+    justify-content: center;
+}
+
+/* LABEL */
+.menu-item .label {
+    margin-left: 10px;
+    font-size: 13px;
+}
+
+/* BODY */
+.home-body {
+    margin-top: 25px;
+    margin-left: 60px; /* match sidebar width */
+    height: calc(100% - 25px);
+}
