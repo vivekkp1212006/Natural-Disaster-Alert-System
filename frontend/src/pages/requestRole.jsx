@@ -48,6 +48,8 @@ const RequestRole = () => {
               style={{ width: "100%", padding: "10px" }}
             >
               <option value="volunteer">Volunteer</option>
+              <option value="camp_officer">Camp Officer</option>
+              <option value="team_leader">Team Leader</option>
               <option value="admin">Admin</option>
             </select>
           </div>

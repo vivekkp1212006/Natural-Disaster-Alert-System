@@ -22,14 +22,14 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ['user', 'admin', 'volunteer'],
+      enum: ['user', 'admin', 'volunteer', 'camp_officer', 'team_leader'],
       default: 'user',
     },
 
-    requestedRole: {
-  type: String,
-  enum: ['volunteer', 'admin'],
-  default: null,
+  requestedRole: {
+    type: String,
+    enum: ['volunteer', 'admin', 'camp_officer', 'team_leader'],
+    default: null,
   },
 
   requestStatus: {

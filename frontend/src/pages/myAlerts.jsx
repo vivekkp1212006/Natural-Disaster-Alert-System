@@ -82,6 +82,7 @@ const GetMyAlerts = () => {
                 <Link to="/request-role">Request Role</Link>
                 {user?.role === "admin" ? <Link to="/admin/role-requests">Admin Role Requests</Link> : null}
                 {user?.role === "admin" ? <Link to="/admin/alerts">Admin Alerts</Link> : null}
+                <Link to="/management">Management Dashboard</Link>
             </div>
 
             <div style={{marginTop:"20px"}}>

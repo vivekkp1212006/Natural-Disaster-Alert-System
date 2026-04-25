@@ -445,7 +445,7 @@ const requestRoleUpgrade = async (req, res) => {
     }
 
     // 5. Validate requested role
-    if (!['admin', 'volunteer'].includes(requestedRole)) {
+    if (!['admin', 'volunteer', 'camp_officer', 'team_leader'].includes(requestedRole)) {
       return res.status(400).json({
         message: 'Invalid role requested',
       });

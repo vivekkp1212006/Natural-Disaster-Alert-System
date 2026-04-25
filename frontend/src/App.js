@@ -10,6 +10,7 @@ import GetMyAlerts  from "./pages/myAlerts";
 import RequestRole from "./pages/requestRole";
 import AdminRoleRequests from "./pages/adminRoleRequests";
 import AdminAlerts from "./pages/adminAlerts";
+import DisasterManagement from "./pages/disasterManagement";
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route path="/request-role" element={<RequestRole />} />
         <Route path="/admin/role-requests" element={<AdminRoleRequests />} />
         <Route path="/admin/alerts" element={<AdminAlerts />} />
+        <Route path="/management" element={<DisasterManagement />} />
       </Routes>
     </Router>
   );

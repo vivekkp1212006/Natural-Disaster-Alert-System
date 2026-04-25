@@ -8,6 +8,7 @@ const roleRoutes = require('./routes/roleRoutes');
 const disasterRoutes = require('./routes/disasterRoutes');
 const weatherRoutes= require('./routes/weatherRoutes');
 const alertRoutes = require('./routes/alertRoute');
+const volunteerRoutes = require('./routes/volunteerRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -24,6 +25,7 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/disasters', disasterRoutes);
 app.use('/api/weather',weatherRoutes);
 app.use('/api/alerts', alertRoutes);
+app.use('/api/volunteers', volunteerRoutes);
 
 app.get('/', (req, res) => {
   res.send('<h1>🌊🔥🌪️ Multi-Hazard Disaster Alert System - Backend Running!</h1>');

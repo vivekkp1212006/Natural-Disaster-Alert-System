@@ -11,16 +11,16 @@ const volunteerSchema = new mongoose.Schema(
 
   age: {
     type: Number,
-    required
+    required: true
   },
   phone: {
     type: String,
-    required
+    required: true
   },
 
   address: {
     type: String,
-    required
+    required: true
   },
 
   skills: [String],
@@ -38,7 +38,7 @@ const volunteerSchema = new mongoose.Schema(
 
   status: {
     type: String,
-    enum: ["pending", "approved", "rejected", "suspended"],
+    enum: ["pending", "approved", "rejected", "suspended", "deployed"],
     default: "pending"
   },
 
