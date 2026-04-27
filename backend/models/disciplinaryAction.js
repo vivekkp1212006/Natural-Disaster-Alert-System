@@ -24,7 +24,15 @@ const disciplinaryActionSchema = new mongoose.Schema(
     reviewedByAdmin: {
       type: Boolean,
       default: false
-    }
+    },
+    suspensionStart: {
+      type: Date,
+      default: null,
+    },
+    suspensionEnd: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -4,6 +4,7 @@ const getEarthquakeRiskLevel = require('../utils/getEarthquakeRiskLevel');
 const calculateDistance = require('../utils/calculateDistance');
 const { sendEmail } = require('../utils/sendEmail');
 const User = require('../models/User');
+const Camp = require('../models/camp');
 const Alert = require('../models/Alert');
 
 const sendAlertMailToUser = async (user, subject, text) => {
@@ -158,6 +159,87 @@ const runAlertChecks = async () => {
 
         console.log("User has location:", user.location);
     }
+
+    const camps = await Camp.find({
+      lat: { $exists: true, $ne: null },
+      lng: { $exists: true, $ne: null },
+    }).populate("campOfficer");
+
+    for (const camp of camps) {
+      const officer = camp.campOfficer;
+      if (!officer || typeof camp.lat !== "number" || typeof camp.lng !== "number") {
+        continue;
+      }
+      const lat = camp.lat;
+      const lng = camp.lng;
+
+      try {
+        const earthquakes = await fetchNearbyEarthquakes(lat, lng);
+        for (const quake of earthquakes) {
+          try {
+            const distance = calculateDistance(lat, lng, quake.latitude, quake.longitude);
+            const riskLevel = getEarthquakeRiskLevel(quake.magnitude, distance);
+            if (riskLevel === null) continue;
+
+            const existingAlert = await Alert.findOne({
+              user: officer._id,
+              type: "earthquake",
+              referenceId: `camp_${camp._id}_${quake.id}`,
+            });
+            if (existingAlert) continue;
+
+            await Alert.create({
+              user: officer._id,
+              type: "earthquake",
+              referenceId: `camp_${camp._id}_${quake.id}`,
+              riskLevel,
+              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            });
+            await sendAlertMailToUser(
+              officer,
+              "Camp Earthquake Alert",
+              `Camp "${camp.name}" may be affected. Risk: ${riskLevel}. ${quake.place || ""}`
+            );
+          } catch (err) {
+            console.error("Camp earthquake alert error", err.message);
+          }
+        }
+      } catch (err) {
+        console.error("Camp earthquake fetch failed", camp._id, err.message);
+      }
+
+      try {
+        const floodData = await fetchRainfallForecast(lat, lng);
+        const floodRisk = floodData?.riskLevel;
+        if (floodRisk && floodRisk !== "LOW") {
+          const floodReferenceId = `camp_${camp._id}_${lat.toFixed(2)}_${lng.toFixed(2)}_${new Date()
+            .toISOString()
+            .slice(0, 13)}_${floodRisk}`;
+          const existingFloodAlert = await Alert.findOne({
+            user: officer._id,
+            type: "flood",
+            referenceId: floodReferenceId,
+          });
+          if (!existingFloodAlert) {
+            await Alert.create({
+              user: officer._id,
+              type: "flood",
+              referenceId: floodReferenceId,
+              riskLevel: floodRisk,
+              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            });
+            await sendAlertMailToUser(
+              officer,
+              "Camp Flood Risk Alert",
+              `Camp "${camp.name}" flood risk: ${floodRisk}. Rainfall (24h): ${floodData.totalRainfall} mm`
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Camp flood check failed", camp._id, err.message);
+      }
+    }
+
     console.log("Number of users found:", users.length);
   } catch (error) {
     console.error("Error while fetching users:", error.message);

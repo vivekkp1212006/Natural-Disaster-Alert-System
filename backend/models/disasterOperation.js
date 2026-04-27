@@ -33,6 +33,17 @@ const disasterOperationSchema = new mongoose.Schema(
       ref: "User",
       required: true
     },
+    camp: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Camp",
+      default: null,
+    },
+    teamLeaderUsers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     assignedVolunteers: [
       {
         volunteer: {

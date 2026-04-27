@@ -36,6 +36,28 @@ const volunteerSchema = new mongoose.Schema(
     ref: "Camp"
   },
 
+  team: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Team",
+    default: null,
+  },
+
+  inReserve: {
+    type: Boolean,
+    default: false,
+  },
+
+  operationsParticipatedCount: {
+    type: Number,
+    default: 0,
+  },
+
+  rankingBadge: {
+    type: String,
+    enum: ["Bronze", "Silver", "Gold", "None"],
+    default: "None",
+  },
+
   status: {
     type: String,
     enum: ["pending", "approved", "rejected", "suspended", "deployed"],

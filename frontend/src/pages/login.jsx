@@ -24,11 +24,7 @@ const Login = () => {
       sessionStorage.setItem("token", data.token);
       sessionStorage.setItem("user", JSON.stringify(data.user));
       
-      if (data.user && (data.user.role === "user" || data.user.role === "User")) {
-        navigate("/home");
-      } else {
-        navigate("/my-alerts");
-      }
+      navigate("/home");
     } catch (err) {
       setMessageType("error");
       if (err.response && err.response.data) {

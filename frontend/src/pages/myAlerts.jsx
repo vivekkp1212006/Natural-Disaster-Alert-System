@@ -70,7 +70,7 @@ const GetMyAlerts = () => {
                 {alerts.map((alert) => (
                     <li key={alert._id}>
                         <p>
-                            Risk: {alert.riskLevel} | Type: {alert.type}<br />
+                            Risk: {alert.riskLevel} | Type: {alert.type === "operation" ? "Operation notice" : alert.type}<br />
                             Expires: {new Date(alert.expiresAt).toLocaleString()}
                         </p>
                     </li>
@@ -79,10 +79,11 @@ const GetMyAlerts = () => {
             ):(<p>{isSubmitting? "processing" : message? message : "No active alerts"}</p>)}
 
             <div style={{marginTop:"15px", display:"flex", gap:"12px", flexWrap:"wrap"}}>
-                <Link to="/request-role">Request Role</Link>
+                {user?.role === "user" ? <Link to="/request-role">Request volunteer</Link> : null}
                 {user?.role === "admin" ? <Link to="/admin/role-requests">Admin Role Requests</Link> : null}
                 {user?.role === "admin" ? <Link to="/admin/alerts">Admin Alerts</Link> : null}
-                <Link to="/management">Management Dashboard</Link>
+                {user?.role === "camp_officer" ? <Link to="/management">Management</Link> : null}
+                <Link to="/home">Home</Link>
             </div>
 
             <div style={{marginTop:"20px"}}>

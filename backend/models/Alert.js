@@ -12,7 +12,7 @@ const alertSchema = new mongoose.Schema(
     // Type of disaster
     type: {
       type: String,
-      enum: ['earthquake', 'flood'],
+      enum: ['earthquake', 'flood', 'operation'],
       required: true,
     },
 

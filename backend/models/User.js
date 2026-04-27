@@ -28,8 +28,15 @@ const userSchema = new mongoose.Schema(
 
   requestedRole: {
     type: String,
-    enum: ['volunteer', 'admin', 'camp_officer', 'team_leader'],
+    enum: ['volunteer'],
     default: null,
+  },
+
+  suspension: {
+    active: { type: Boolean, default: false },
+    startsAt: { type: Date, default: null },
+    endsAt: { type: Date, default: null },
+    reason: { type: String, default: '' },
   },
 
   requestStatus: {

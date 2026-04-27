@@ -1,9 +1,13 @@
 const User = require('../models/User');
+const Volunteer = require('../models/volunteer');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { otpGenerator } = require('../utils/generateOtp');
 const { sendEmail } = require('../utils/sendEmail');
 const validatePassword = require('../utils/validatePassword');
+const { findNearestCamp } = require('../services/nearestCampService');
+const { ensureTrainingRows } = require('./campOfficerRoleController');
+const { computeBadge } = require('../services/rankingService');
 
 // @desc   Register new user
 // @route  POST /api/auth/register
@@ -353,6 +357,19 @@ const loginUser = async (req, res) => {
       });
     }
 
+    if (
+      user.suspension &&
+      user.suspension.active &&
+      user.suspension.endsAt &&
+      new Date(user.suspension.endsAt) > new Date()
+    ) {
+      return res.status(403).json({
+        message: `Account suspended until ${new Date(user.suspension.endsAt).toLocaleString()}. ${
+          user.suspension.reason ? `Reason: ${user.suspension.reason}` : ''
+        }`,
+      });
+    }
+
     // 4. Generate JWT
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -366,6 +383,7 @@ const loginUser = async (req, res) => {
       token,
       user: {
         id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -385,9 +403,32 @@ const loginUser = async (req, res) => {
 // @access Private
 const getProfile = async (req, res) => {
   try {
+    const dbUser = await User.findById(req.user.id).select('-password');
+    if (!dbUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const volunteer = await Volunteer.findOne({ user: dbUser._id });
+    let rankingBadge = null;
+    if (volunteer && dbUser.role !== 'user') {
+      rankingBadge = await computeBadge(volunteer);
+    }
+
     res.json({
       message: 'Protected route accessed successfully',
-      user: req.user,
+      user: {
+        id: dbUser._id,
+        _id: dbUser._id,
+        name: dbUser.name,
+        email: dbUser.email,
+        role: dbUser.role,
+        location: dbUser.location,
+        requestStatus: dbUser.requestStatus,
+        requestedRole: dbUser.requestedRole,
+        suspension: dbUser.suspension,
+      },
+      volunteer,
+      rankingBadge,
     });
   } catch (error) {
     res.status(500).json({
@@ -421,53 +462,61 @@ const volunteerRoute = (req, res) => {
 // @access Private (User)
 const requestRoleUpgrade = async (req, res) => {
   try {
-    // 1. Get requested role
-    const { requestedRole } = req.body;
-
-    // 2. Get logged-in user
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // 3. Only normal users can request upgrade
     if (user.role !== 'user') {
       return res.status(403).json({
-        message: 'Only users can request role upgrade',
+        message: 'Only users can request volunteer access',
       });
     }
 
-    // 4. Prevent multiple pending requests
     if (user.requestStatus === 'pending') {
       return res.status(400).json({
-        message: 'You already have a pending role request',
+        message: 'You already have a pending volunteer request',
       });
     }
 
-    // 5. Validate requested role
-    if (!['admin', 'volunteer', 'camp_officer', 'team_leader'].includes(requestedRole)) {
+    const enrollment = await Volunteer.findOne({ user: user._id });
+    if (!enrollment) {
       return res.status(400).json({
-        message: 'Invalid role requested',
+        message: 'Please submit volunteer enrollment before requesting volunteer role',
       });
     }
 
-    // 6. Set request details
-    user.requestedRole = requestedRole;
+    user.requestedRole = 'volunteer';
     user.requestStatus = 'pending';
     user.roleRequestedAt = new Date();
 
     await user.save();
+    await ensureTrainingRows(user._id);
 
-    // 7. Send response
+    const lat = user.location?.lat;
+    const lng = user.location?.lng;
+    const nearest = await findNearestCamp(lat, lng);
+    const campLine = nearest?.camp
+      ? `Nearest training camp: ${nearest.camp.name} (approx ${nearest.distanceKm.toFixed(1)} km away).`
+      : 'Complete your trainings with a camp officer. A camp will be assigned once you are promoted.';
+
+    await sendEmail(
+      user.email,
+      'Volunteer training next steps',
+      `Hello ${user.name},\n\nThank you for requesting the volunteer role.\n${campLine}\n\nAttend training at the nearest camp and complete the required training modules.\n\nRegards,\nAegis Disaster Response`
+    );
+
     res.status(201).json({
-      message: 'Role upgrade request submitted successfully',
+      message: 'Volunteer request submitted successfully',
       request: {
         requestedRole: user.requestedRole,
         requestStatus: user.requestStatus,
         roleRequestedAt: user.roleRequestedAt,
+        nearestCamp: nearest?.camp
+          ? { name: nearest.camp.name, distanceKm: nearest.distanceKm }
+          : null,
       },
     });
-
   } catch (error) {
     res.status(500).json({
       message: 'Server error',
@@ -536,6 +585,12 @@ const approveRoleRequest = async (req, res) => {
     if (user.requestStatus !== 'pending' || !user.requestedRole) {
       return res.status(400).json({
         message: 'No pending role request to approve',
+      });
+    }
+
+    if (user.requestedRole === 'volunteer') {
+      return res.status(400).json({
+        message: 'Volunteer approvals are handled by camp officers with training completion',
       });
     }
 

@@ -1,38 +1,77 @@
-const User = require("../models/User");
-const Volunteer = require("../models/volunteer");
-const Camp = require("../models/camp");
-const TrainingSession = require("../models/trainingSession");
-const DisasterOperation = require("../models/disasterOperation");
-const DisciplinaryAction = require("../models/disciplinaryAction");
+const User = require('../models/User');
+const Volunteer = require('../models/volunteer');
+const Camp = require('../models/camp');
+const Team = require('../models/Team');
+const TrainingSession = require('../models/trainingSession');
+const DisasterOperation = require('../models/disasterOperation');
+const DisciplinaryAction = require('../models/disciplinaryAction');
+const Alert = require('../models/Alert');
+const { sendEmail } = require('../utils/sendEmail');
+const { assertNotPastDate, assertNotPastDateTime, assertEndAfterStart } = require('../utils/dateValidation');
+const {
+  assignVolunteerToCampTeamOrReserve,
+  pullVolunteerFromTeam,
+  promoteFromReserveIfNeeded,
+} = require('../services/teamAssignmentService');
+const { computeBadge, refreshVolunteerBadge } = require('../services/rankingService');
 
 const createCamp = async (req, res) => {
   try {
-    const { name, region, district, address, capacity } = req.body;
-    if (!name || !region || !district || !address || !capacity) {
-      return res.status(400).json({ message: "Please fill all camp fields" });
+    const { name, lat, lng, campOfficerId } = req.body;
+    if (!name || lat === undefined || lng === undefined || !campOfficerId) {
+      return res.status(400).json({ message: 'name, lat, lng and campOfficerId are required' });
+    }
+
+    const officer = await User.findById(campOfficerId);
+    if (!officer || officer.role !== 'team_leader') {
+      return res.status(400).json({ message: 'Camp officer must be an existing team leader' });
     }
 
     const camp = await Camp.create({
       name,
-      region,
-      district,
-      address,
-      capacity,
-      campOfficer: req.user.id
+      lat: Number(lat),
+      lng: Number(lng),
+      campOfficer: campOfficerId,
     });
 
-    res.status(201).json({ message: "Camp created", camp });
+    officer.role = 'camp_officer';
+    await officer.save();
+
+    await Team.deleteMany({ leader: campOfficerId });
+
+    const officerVolunteer = await Volunteer.findOne({ user: officer._id });
+    if (officerVolunteer) {
+      await pullVolunteerFromTeam(officerVolunteer._id);
+    }
+
+    res.status(201).json({ message: 'Camp created', camp });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 const getCamps = async (req, res) => {
   try {
-    const camps = await Camp.find().populate("campOfficer", "name email role").sort({ createdAt: -1 });
-    res.json({ camps });
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const skip = (page - 1) * limit;
+    const search = (req.query.search || '').trim();
+
+    const filter = {};
+    if (search) {
+      filter.name = new RegExp(search, 'i');
+    }
+
+    const total = await Camp.countDocuments(filter);
+    const camps = await Camp.find(filter)
+      .populate('campOfficer', 'name email role')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({ camps, page, limit, total, totalPages: Math.ceil(total / limit) });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -40,12 +79,12 @@ const createVolunteerProfile = async (req, res) => {
   try {
     const { age, phone, address, skills, experienceYears, region, district } = req.body;
     if (!age || !phone || !address) {
-      return res.status(400).json({ message: "Age, phone and address are required" });
+      return res.status(400).json({ message: 'Age, phone and address are required' });
     }
 
     const existing = await Volunteer.findOne({ user: req.user.id });
     if (existing) {
-      return res.status(400).json({ message: "Volunteer profile already exists" });
+      return res.status(400).json({ message: 'Volunteer profile already exists' });
     }
 
     const volunteer = await Volunteer.create({
@@ -55,121 +94,207 @@ const createVolunteerProfile = async (req, res) => {
       address,
       skills: Array.isArray(skills) ? skills : [],
       experienceYears: experienceYears || 0,
-      region: region || "",
-      district: district || "",
-      status: "pending"
+      region: region || '',
+      district: district || '',
+      status: 'pending',
     });
 
-    res.status(201).json({ message: "Volunteer profile submitted", volunteer });
+    res.status(201).json({ message: 'Volunteer profile submitted', volunteer });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 const getVolunteers = async (req, res) => {
   try {
-    const volunteers = await Volunteer.find()
-      .populate("user", "name email role")
-      .populate("assignedCamp", "name region district")
-      .sort({ createdAt: -1 });
-    res.json({ volunteers });
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const skip = (page - 1) * limit;
+    const search = (req.query.search || '').trim();
+
+    const filter = {};
+    if (search) {
+      filter.$or = [
+        { phone: new RegExp(search, 'i') },
+        { address: new RegExp(search, 'i') },
+      ];
+    }
+
+    const total = await Volunteer.countDocuments(filter);
+    const volunteers = await Volunteer.find(filter)
+      .populate('user', 'name email role')
+      .populate('assignedCamp', 'name lat lng')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({ volunteers, page, limit, total, totalPages: Math.ceil(total / limit) });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 const approveVolunteer = async (req, res) => {
-  try {
-    const { volunteerId } = req.params;
-    const volunteer = await Volunteer.findById(volunteerId);
-    if (!volunteer) {
-      return res.status(404).json({ message: "Volunteer not found" });
-    }
-
-    volunteer.status = "approved";
-    volunteer.approvedBy = req.user.id;
-    volunteer.approvedAt = new Date();
-    await volunteer.save();
-
-    await User.findByIdAndUpdate(volunteer.user, { role: "volunteer" });
-
-    res.json({ message: "Volunteer approved", volunteer });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
+  res.status(400).json({
+    message: 'Volunteer promotion is handled through camp officer training completion',
+  });
 };
 
 const createTraining = async (req, res) => {
   try {
     const { title, description, camp, date, volunteerIds } = req.body;
     if (!title || !camp || !date) {
-      return res.status(400).json({ message: "Title, camp and date required" });
+      return res.status(400).json({ message: 'Title, camp and date required' });
+    }
+
+    const dateCheck = assertNotPastDate(date, 'date');
+    if (!dateCheck.ok) {
+      return res.status(400).json({ message: dateCheck.message });
     }
 
     const training = await TrainingSession.create({
       title,
-      description: description || "",
+      description: description || '',
       camp,
       date,
       campOfficer: req.user.id,
-      volunteers: Array.isArray(volunteerIds) ? volunteerIds : []
+      volunteers: Array.isArray(volunteerIds) ? volunteerIds : [],
     });
 
-    res.status(201).json({ message: "Training scheduled", training });
+    res.status(201).json({ message: 'Training scheduled', training });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 const getTrainings = async (req, res) => {
   try {
-    const trainings = await TrainingSession.find()
-      .populate("camp", "name district region")
-      .populate("campOfficer", "name")
-      .populate({ path: "volunteers", populate: { path: "user", select: "name email" } })
-      .sort({ date: -1 });
-    res.json({ trainings });
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const skip = (page - 1) * limit;
+    const search = (req.query.search || '').trim();
+    const filter = {};
+    if (search) {
+      filter.title = new RegExp(search, 'i');
+    }
+    const total = await TrainingSession.countDocuments(filter);
+    const trainings = await TrainingSession.find(filter)
+      .populate('camp', 'name district region lat lng')
+      .populate('campOfficer', 'name')
+      .populate({ path: 'volunteers', populate: { path: 'user', select: 'name email' } })
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(limit);
+    res.json({ trainings, page, limit, total, totalPages: Math.ceil(total / limit) });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 const certifyVolunteer = async (req, res) => {
-  try {
-    const { volunteerId } = req.params;
-    const volunteer = await Volunteer.findById(volunteerId);
-    if (!volunteer) {
-      return res.status(404).json({ message: "Volunteer not found" });
+  res.status(400).json({ message: 'Certification is replaced by modular training completion' });
+};
+
+const notifyOperationVolunteers = async (operation, camp) => {
+  const teams = await Team.find({ camp: camp._id }).populate({
+    path: 'members',
+    populate: { path: 'user', select: 'email name _id' },
+  });
+
+  const volunteerUsers = new Map();
+  for (const team of teams) {
+    for (const member of team.members || []) {
+      if (member.user) {
+        volunteerUsers.set(String(member.user._id), member.user);
+      }
+    }
+  }
+
+  const campDoc = await Camp.findById(camp._id);
+  for (const vid of campDoc.reserveVolunteers || []) {
+    const vol = await Volunteer.findById(vid).populate('user', 'email name _id');
+    if (vol?.user) volunteerUsers.set(String(vol.user._id), vol.user);
+  }
+
+  const subject = `New disaster operation: ${operation.title}`;
+  const text = `A new operation "${operation.title}" has been scheduled at ${operation.location} starting ${new Date(
+    operation.startsAt
+  ).toLocaleString()}.`;
+
+  for (const u of volunteerUsers.values()) {
+    try {
+      await sendEmail(u.email, subject, text);
+    } catch (e) {
+      console.error('operation email fail', e.message);
     }
 
-    volunteer.certified = true;
-    await volunteer.save();
-    res.json({ message: "Volunteer certified", volunteer });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    try {
+      await Alert.create({
+        user: u._id,
+        type: 'operation',
+        referenceId: `op_${operation._id}_${u._id}`,
+        riskLevel: 'LOW',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      });
+    } catch (e) {
+      console.error('operation alert fail', e.message);
+    }
   }
 };
 
 const createOperation = async (req, res) => {
   try {
-    const { title, disasterType, location, startsAt, endsAt, status } = req.body;
-    if (!title || !location || !startsAt) {
-      return res.status(400).json({ message: "Title, location and startsAt required" });
+    const { title, disasterType, location, startsAt, endsAt, status, camp: campId, teamLeaderUsers } = req.body;
+    if (!title || !location || !startsAt || !campId) {
+      return res.status(400).json({ message: 'Title, location, startsAt and camp are required' });
+    }
+
+    const startCheck = assertNotPastDateTime(startsAt, 'startsAt');
+    if (!startCheck.ok) {
+      return res.status(400).json({ message: startCheck.message });
+    }
+    if (endsAt) {
+      const endCheck = assertNotPastDateTime(endsAt, 'endsAt');
+      if (!endCheck.ok) {
+        return res.status(400).json({ message: endCheck.message });
+      }
+    }
+    const range = assertEndAfterStart(startsAt, endsAt);
+    if (!range.ok) {
+      return res.status(400).json({ message: range.message });
+    }
+
+    const camp = await Camp.findById(campId);
+    if (!camp) {
+      return res.status(404).json({ message: 'Camp not found' });
+    }
+
+    const leaders = Array.isArray(teamLeaderUsers) ? teamLeaderUsers : [];
+    for (const leaderId of leaders) {
+      const leaderUser = await User.findById(leaderId);
+      const vol = await Volunteer.findOne({ user: leaderId });
+      if (!leaderUser || leaderUser.role !== 'team_leader' || !vol || String(vol.assignedCamp) !== String(camp._id)) {
+        return res.status(400).json({ message: 'Team leaders must belong to the selected camp' });
+      }
     }
 
     const operation = await DisasterOperation.create({
       title,
-      disasterType: disasterType || "other",
+      disasterType: disasterType || 'other',
       location,
       startsAt,
       endsAt: endsAt || null,
-      status: status || "planned",
-      createdBy: req.user.id
+      status: status || 'planned',
+      createdBy: req.user.id,
+      camp: camp._id,
+      teamLeaderUsers: leaders,
     });
 
-    res.status(201).json({ message: "Operation created", operation });
+    await notifyOperationVolunteers(operation, camp);
+
+    res.status(201).json({ message: 'Operation created', operation });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -178,46 +303,72 @@ const assignVolunteerToOperation = async (req, res) => {
     const { operationId, volunteerId } = req.params;
     const operation = await DisasterOperation.findById(operationId);
     if (!operation) {
-      return res.status(404).json({ message: "Operation not found" });
+      return res.status(404).json({ message: 'Operation not found' });
     }
 
     const volunteer = await Volunteer.findById(volunteerId);
     if (!volunteer) {
-      return res.status(404).json({ message: "Volunteer not found" });
+      return res.status(404).json({ message: 'Volunteer not found' });
     }
 
     const alreadyAssigned = operation.assignedVolunteers.some((v) => String(v.volunteer) === String(volunteerId));
     if (alreadyAssigned) {
-      return res.status(400).json({ message: "Volunteer already assigned" });
+      return res.status(400).json({ message: 'Volunteer already assigned' });
     }
 
     operation.assignedVolunteers.push({
       volunteer: volunteerId,
-      assignedBy: req.user.id
+      assignedBy: req.user.id,
     });
     await operation.save();
 
-    volunteer.status = "deployed";
+    volunteer.status = 'deployed';
+    volunteer.operationsParticipatedCount = (volunteer.operationsParticipatedCount || 0) + 1;
     await volunteer.save();
+    await refreshVolunteerBadge(Volunteer, volunteer._id);
 
-    res.json({ message: "Volunteer assigned to operation", operation });
+    res.json({ message: 'Volunteer assigned to operation', operation });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 const getOperations = async (req, res) => {
   try {
-    const operations = await DisasterOperation.find()
-      .populate("createdBy", "name role")
+    const now = new Date();
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const skip = (page - 1) * limit;
+    const filter = {};
+    if (req.user.role === 'volunteer') {
+      const vol = await Volunteer.findOne({ user: req.user.id });
+      if (!vol) {
+        return res.json({ operations: [], page, limit, total: 0, totalPages: 0 });
+      }
+      filter['assignedVolunteers.volunteer'] = vol._id;
+      filter.status = { $in: ['planned', 'active'] };
+      filter.$or = [{ endsAt: null }, { endsAt: { $exists: false } }, { endsAt: { $gte: now } }];
+    } else if (req.user.role === 'camp_officer') {
+      const camp = await Camp.findOne({ campOfficer: req.user.id });
+      if (camp) {
+        filter.camp = camp._id;
+      }
+    }
+
+    const total = await DisasterOperation.countDocuments(filter);
+    const operations = await DisasterOperation.find(filter)
+      .populate('createdBy', 'name role')
       .populate({
-        path: "assignedVolunteers.volunteer",
-        populate: { path: "user", select: "name email" }
+        path: 'assignedVolunteers.volunteer',
+        populate: { path: 'user', select: 'name email' },
       })
-      .sort({ createdAt: -1 });
-    res.json({ operations });
+      .sort({ startsAt: 1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({ operations, page, limit, total, totalPages: Math.ceil(total / limit) });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -228,73 +379,297 @@ const myVolunteerOperations = async (req, res) => {
       return res.json({ operations: [] });
     }
 
+    const now = new Date();
     const operations = await DisasterOperation.find({
-      "assignedVolunteers.volunteer": volunteer._id
-    }).sort({ createdAt: -1 });
+      'assignedVolunteers.volunteer': volunteer._id,
+      status: { $in: ['planned', 'active'] },
+      $or: [{ endsAt: { $exists: false } }, { endsAt: null }, { endsAt: { $gte: now } }],
+    }).sort({ startsAt: 1 });
 
     res.json({ operations });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 const markTeamLeader = async (req, res) => {
   try {
     const { volunteerId } = req.params;
-    const volunteer = await Volunteer.findById(volunteerId);
+    const volunteer = await Volunteer.findById(volunteerId).populate('user');
     if (!volunteer) {
-      return res.status(404).json({ message: "Volunteer not found" });
+      return res.status(404).json({ message: 'Volunteer not found' });
     }
+
+    await pullVolunteerFromTeam(volunteer._id);
 
     volunteer.teamLeader = true;
     await volunteer.save();
-    await User.findByIdAndUpdate(volunteer.user, { role: "team_leader" });
 
-    res.json({ message: "Volunteer promoted as team leader", volunteer });
+    await User.findByIdAndUpdate(volunteer.user._id, { role: 'team_leader' });
+
+    if (volunteer.assignedCamp) {
+      await Team.create({
+        camp: volunteer.assignedCamp,
+        leader: volunteer.user._id,
+        members: [],
+      });
+      await promoteFromReserveIfNeeded(volunteer.assignedCamp);
+    }
+
+    await refreshVolunteerBadge(Volunteer, volunteer._id);
+
+    res.json({ message: 'Volunteer promoted as team leader', volunteer });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 const issueDisciplinaryAction = async (req, res) => {
   try {
-    const { volunteerId, actionType, reason } = req.body;
+    const { volunteerId, actionType, reason, suspensionStart, suspensionEnd } = req.body;
     if (!volunteerId || !actionType || !reason) {
-      return res.status(400).json({ message: "volunteerId, actionType and reason are required" });
+      return res.status(400).json({ message: 'volunteerId, actionType and reason are required' });
     }
 
-    const volunteer = await Volunteer.findById(volunteerId);
-    if (!volunteer) {
-      return res.status(404).json({ message: "Volunteer not found" });
+    const volunteer = await Volunteer.findById(volunteerId).populate('user');
+    if (!volunteer || !volunteer.user) {
+      return res.status(404).json({ message: 'Volunteer not found' });
+    }
+
+    const targetRole = volunteer.user.role;
+    if (!['volunteer', 'team_leader'].includes(targetRole)) {
+      return res.status(400).json({ message: 'Disciplinary actions apply only to volunteers or team leaders' });
     }
 
     const action = await DisciplinaryAction.create({
       volunteer: volunteerId,
       actionType,
       reason,
-      issuedBy: req.user.id
+      issuedBy: req.user.id,
+      suspensionStart: actionType === 'suspension' ? suspensionStart || new Date() : null,
+      suspensionEnd: actionType === 'suspension' ? suspensionEnd : null,
     });
 
-    if (actionType === "suspension") {
-      volunteer.status = "suspended";
-      await volunteer.save();
+    if (actionType === 'warning') {
+      const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+      const warningCount = await DisciplinaryAction.countDocuments({
+        volunteer: volunteerId,
+        actionType: 'warning',
+        createdAt: { $gte: yearAgo },
+      });
+
+      if (warningCount >= 3) {
+        const start = new Date();
+        const end = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        volunteer.status = 'suspended';
+        await volunteer.save();
+
+        await User.findByIdAndUpdate(volunteer.user._id, {
+          suspension: {
+            active: true,
+            startsAt: start,
+            endsAt: end,
+            reason: 'Automatic suspension after 3 warnings within 12 months',
+          },
+        });
+
+        await DisciplinaryAction.create({
+          volunteer: volunteerId,
+          actionType: 'suspension',
+          reason: 'Automatic suspension after 3 warnings within 12 months',
+          issuedBy: req.user.id,
+          suspensionStart: start,
+          suspensionEnd: end,
+        });
+
+        await sendEmail(
+          volunteer.user.email,
+          'Account suspension notice',
+          `You have been suspended until ${end.toISOString()}.\nReason: Automatic suspension after 3 warnings within 12 months.`
+        );
+      }
     }
 
-    res.status(201).json({ message: "Disciplinary action recorded", action });
+    if (actionType === 'suspension') {
+      if (!suspensionEnd) {
+        return res.status(400).json({ message: 'suspensionEnd is required for suspensions' });
+      }
+      const range = assertEndAfterStart(suspensionStart || new Date(), suspensionEnd, 'suspensionStart', 'suspensionEnd');
+      if (!range.ok) {
+        return res.status(400).json({ message: range.message });
+      }
+
+      volunteer.status = 'suspended';
+      await volunteer.save();
+
+      const sStart = suspensionStart ? new Date(suspensionStart) : new Date();
+      const sEnd = new Date(suspensionEnd);
+      await User.findByIdAndUpdate(volunteer.user._id, {
+        suspension: {
+          active: true,
+          startsAt: sStart,
+          endsAt: sEnd,
+          reason,
+        },
+      });
+
+      await sendEmail(
+        volunteer.user.email,
+        'Suspension notice',
+        `Reason: ${reason}\nDuration: ${sStart.toISOString()} → ${sEnd.toISOString()}`
+      );
+    }
+
+    await refreshVolunteerBadge(Volunteer, volunteer._id);
+
+    res.status(201).json({ message: 'Disciplinary action recorded', action });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 const getDisciplinaryActions = async (req, res) => {
   try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const skip = (page - 1) * limit;
+    const total = await DisciplinaryAction.countDocuments({});
     const actions = await DisciplinaryAction.find()
-      .populate({ path: "volunteer", populate: { path: "user", select: "name email" } })
-      .populate("issuedBy", "name role")
-      .sort({ createdAt: -1 });
-    res.json({ actions });
+      .populate({ path: 'volunteer', populate: { path: 'user', select: 'name email role' } })
+      .populate('issuedBy', 'name role')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    res.json({ actions, page, limit, total, totalPages: Math.ceil(total / limit) });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+const getTeamLeaders = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const skip = (page - 1) * limit;
+    const search = (req.query.search || '').trim();
+
+    const userFilter = { role: 'team_leader' };
+    if (search) {
+      userFilter.name = new RegExp(search, 'i');
+    }
+
+    const users = await User.find(userFilter).select('name email role').skip(skip).limit(limit);
+    const total = await User.countDocuments(userFilter);
+
+    const detailed = await Promise.all(
+      users.map(async (u) => {
+        const vol = await Volunteer.findOne({ user: u._id }).populate('assignedCamp', 'name');
+        const badge = vol ? await computeBadge(vol) : null;
+        return { user: u, volunteer: vol, rankingBadge: badge };
+      })
+    );
+
+    res.json({ leaders: detailed, page, limit, total, totalPages: Math.ceil(total / limit) });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+const getAdminSummary = async (req, res) => {
+  try {
+    const [camps, officers, leaders, volunteers, users, ops] = await Promise.all([
+      Camp.countDocuments(),
+      User.countDocuments({ role: 'camp_officer' }),
+      User.countDocuments({ role: 'team_leader' }),
+      User.countDocuments({ role: 'volunteer' }),
+      User.countDocuments({ role: 'user' }),
+      DisasterOperation.countDocuments({ status: { $in: ['planned', 'active'] } }),
+    ]);
+    res.json({ camps, campOfficers: officers, teamLeaders: leaders, volunteers, users, liveOrUpcomingOperations: ops });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+const getCampDetail = async (req, res) => {
+  try {
+    const camp = await Camp.findById(req.params.campId).populate('campOfficer', 'name email');
+    if (!camp) {
+      return res.status(404).json({ message: 'Camp not found' });
+    }
+    const teams = await Team.find({ camp: camp._id }).populate({
+      path: 'members',
+      populate: { path: 'user', select: 'name email' },
+    });
+    const volsInCamp = await Volunteer.countDocuments({ assignedCamp: camp._id });
+    const trainings = await TrainingSession.countDocuments({ camp: camp._id, date: { $gte: new Date() } });
+    const operations = await DisasterOperation.find({
+      camp: camp._id,
+      status: { $in: ['planned', 'active'] },
+    }).sort({ startsAt: 1 });
+
+    res.json({
+      camp,
+      teams,
+      volunteersInCamp: volsInCamp,
+      teamLeadersInCamp: teams.length,
+      upcomingTrainings: trainings,
+      operations,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+const getCampOfficerHomeStats = async (req, res) => {
+  try {
+    const camp = await Camp.findOne({ campOfficer: req.user.id });
+    if (!camp) {
+      return res.json({
+        camp: null,
+        teamLeaders: 0,
+        volunteers: 0,
+        scheduledTrainings: 0,
+        operations: [],
+      });
+    }
+
+    const teams = await Team.find({ camp: camp._id });
+    const teamLeaders = teams.length;
+    const volunteerCount = await Volunteer.countDocuments({ assignedCamp: camp._id });
+    const scheduledTrainings = await TrainingSession.countDocuments({ camp: camp._id, date: { $gte: new Date() } });
+    const operations = await DisasterOperation.find({
+      camp: camp._id,
+      status: { $in: ['planned', 'active'] },
+    }).sort({ startsAt: 1 });
+
+    res.json({
+      camp,
+      teamLeaders,
+      volunteers: volunteerCount,
+      scheduledTrainings,
+      operations,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+const getTeamLeaderDashboard = async (req, res) => {
+  try {
+    const leaderUser = await User.findById(req.user.id);
+    const team = await Team.findOne({ leader: leaderUser._id }).populate({
+      path: 'members',
+      populate: { path: 'user', select: 'name email role' },
+    });
+    const operations = await DisasterOperation.find({
+      teamLeaderUsers: leaderUser._id,
+      status: { $in: ['planned', 'active'] },
+    }).sort({ startsAt: 1 });
+
+    res.json({ team, operations });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -313,5 +688,10 @@ module.exports = {
   myVolunteerOperations,
   markTeamLeader,
   issueDisciplinaryAction,
-  getDisciplinaryActions
+  getDisciplinaryActions,
+  getTeamLeaders,
+  getAdminSummary,
+  getCampDetail,
+  getCampOfficerHomeStats,
+  getTeamLeaderDashboard,
 };

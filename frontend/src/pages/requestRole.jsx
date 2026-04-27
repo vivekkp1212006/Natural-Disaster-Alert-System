@@ -6,7 +6,7 @@ import "./style.css";
 const RequestRole = () => {
   const navigate = useNavigate();
   const token = sessionStorage.getItem("token");
-  const [requestedRole, setRequestedRole] = useState("volunteer");
+  const user = JSON.parse(sessionStorage.getItem("user") || "null");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -15,22 +15,29 @@ const RequestRole = () => {
     return null;
   }
 
+  if (user?.role && user.role !== "user") {
+    return (
+      <div className="login-container">
+        <div className="login-box">
+          <p>Only regular users can request the volunteer role.</p>
+          <Link to="/home">Back to home</Link>
+        </div>
+      </div>
+    );
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_URL}/api/roles/request`,
-        { requestedRole },
+        { requestedRole: "volunteer" },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setMessage(res.data.message);
     } catch (err) {
-      if (err.response?.data?.message) {
-        setMessage(err.response.data.message);
-      } else {
-        setMessage("Something went wrong. Try again later");
-      }
+      setMessage(err.response?.data?.message || "Something went wrong. Try again later");
     } finally {
       setIsSubmitting(false);
     }
@@ -39,26 +46,17 @@ const RequestRole = () => {
   return (
     <div className="login-container">
       <div className="login-box">
-        <h2>Request Role Upgrade</h2>
+        <h2>Request volunteer role</h2>
+        <p className="home-small-hint">Submit enrollment on the home page first, then request here.</p>
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <select
-              value={requestedRole}
-              onChange={(e) => setRequestedRole(e.target.value)}
-              style={{ width: "100%", padding: "10px" }}
-            >
-              <option value="volunteer">Volunteer</option>
-              <option value="camp_officer">Camp Officer</option>
-              <option value="team_leader">Team Leader</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
           <button type="submit" disabled={isSubmitting} className="login-button">
-            Submit Request
+            Submit volunteer request
           </button>
         </form>
         <p>{isSubmitting ? "Processing..." : message}</p>
-        <p><Link to="/my-alerts">Back to Alerts</Link></p>
+        <p>
+          <Link to="/home">Back to home</Link>
+        </p>
       </div>
     </div>
   );
