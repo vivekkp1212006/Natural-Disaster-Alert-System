@@ -3,34 +3,40 @@ import { login } from "../services/authService";
 import "./style.css";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import StatusModal from "../components/StatusModal";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState("");
+  const [modal, setModal] = useState({ open: false, type: "error", message: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setModal({ open: true, type: "error", message: "Enter a valid email address" });
+      return;
+    }
+    if (!password) {
+      setModal({ open: true, type: "error", message: "Password is required" });
+      return;
+    }
 
     //disable the subit button
     setIsSubmitting(true);
 
     try {
-      const data = await login(email, password);
-      setMessage(data.message);
-      setMessageType("success");
+      const data = await login(trimmedEmail, password);
       sessionStorage.setItem("token", data.token);
       sessionStorage.setItem("user", JSON.stringify(data.user));
       
       navigate("/home");
     } catch (err) {
-      setMessageType("error");
       if (err.response && err.response.data) {
-        setMessage(err.response.data.message);
+        setModal({ open: true, type: "error", message: err.response.data.message });
       } else {
-        setMessage("Something went wrong. Try again later");
+        setModal({ open: true, type: "error", message: "Something went wrong. Try again later" });
       }
     }
     finally {
@@ -73,7 +79,13 @@ const Login = () => {
           Don't have an account? <Link to={"/signup"}>Sign Up</Link>
         </p>
 
-          <p className={`message ${messageType}`}>{isSubmitting ? "Processing..." : message }</p>
+        <p>{isSubmitting ? "Processing..." : ""}</p>
+        <StatusModal
+          open={modal.open}
+          type={modal.type}
+          message={modal.message}
+          onClose={() => setModal({ open: false, type: "error", message: "" })}
+        />
       </div>
     </div>
   );

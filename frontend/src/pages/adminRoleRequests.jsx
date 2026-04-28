@@ -2,13 +2,14 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import "./style.css";
+import StatusModal from "../components/StatusModal";
 
 const AdminRoleRequests = () => {
   const navigate = useNavigate();
   const token = sessionStorage.getItem("token");
   const user = JSON.parse(sessionStorage.getItem("user") || "null");
   const [requests, setRequests] = useState([]);
-  const [message, setMessage] = useState("");
+  const [modal, setModal] = useState({ open: false, type: "success", message: "" });
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -17,7 +18,7 @@ const AdminRoleRequests = () => {
       return;
     }
     if (user?.role !== "admin") {
-      setMessage("Only admin can access this page");
+      setModal({ open: true, type: "error", message: "Only admin can access this page" });
       return;
     }
 
@@ -29,7 +30,7 @@ const AdminRoleRequests = () => {
         });
         setRequests(res.data.requests || []);
       } catch (err) {
-        setMessage(err.response?.data?.message || "Failed to fetch requests");
+        setModal({ open: true, type: "error", message: err.response?.data?.message || "Failed to fetch requests" });
       } finally {
         setIsLoading(false);
       }
@@ -44,10 +45,10 @@ const AdminRoleRequests = () => {
       const res = await axios.post(url, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setMessage(res.data.message || "Updated");
+      setModal({ open: true, type: "success", message: res.data.message || "Updated" });
       setRequests((prev) => prev.filter((item) => item._id !== userId));
     } catch (err) {
-      setMessage(err.response?.data?.message || "Action failed");
+      setModal({ open: true, type: "error", message: err.response?.data?.message || "Action failed" });
     }
   };
 
@@ -56,7 +57,12 @@ const AdminRoleRequests = () => {
       <div className="login-box">
         <h2>Pending Role Requests</h2>
         {isLoading ? <p>Loading...</p> : null}
-        {message ? <p>{message}</p> : null}
+        <StatusModal
+          open={modal.open}
+          type={modal.type}
+          message={modal.message}
+          onClose={() => setModal({ open: false, type: "success", message: "" })}
+        />
 
         {requests.length === 0 ? (
           <p>No pending requests</p>
@@ -67,6 +73,7 @@ const AdminRoleRequests = () => {
                 <p>
                   Name: {req.name}<br />
                   Email: {req.email}<br />
+                  AGS ID: {req.AGS_ID}<br />
                   Requested Role: {req.requestedRole}
                 </p>
                 <button className="login-button" onClick={() => handleAction(req._id, "approve")}>

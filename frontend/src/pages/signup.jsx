@@ -3,13 +3,14 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import "./style.css";
+import StatusModal from "../components/StatusModal";
 
 const Signup = () =>  {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [message, setMessage] = useState("");
+    const [modal, setModal] = useState({ open: false, type: "error", message: "" });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [location, setLocation] = useState({
         latitude: null,
@@ -18,7 +19,7 @@ const Signup = () =>  {
     const navigate = useNavigate();
     useEffect(() => {
         if(!navigator.geolocation) {
-            setMessage("Geolocation is not supported by this browser");
+            setModal({ open: true, type: "error", message: "Geolocation is not supported by this browser" });
             return;
         }
         navigator.geolocation.getCurrentPosition(
@@ -31,13 +32,13 @@ const Signup = () =>  {
             },
             (error) => {
                 if(error.code === 1) {
-                    setMessage("Location permission denied. Please enable location access in browser settings and reload the page.");
+                    setModal({ open: true, type: "error", message: "Location permission denied. Please enable location access in browser settings and reload the page." });
                 }
                 else if(error.code === 2) {
-                    setMessage("Location un available");
+                    setModal({ open: true, type: "error", message: "Location unavailable" });
                 }
                 else if(error.code === 3) {
-                    setMessage("Request timeout");
+                    setModal({ open: true, type: "error", message: "Location request timeout" });
                 }
             }
         );
@@ -45,6 +46,7 @@ const Signup = () =>  {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        const trimmedEmail = email.trim();
         const hasUpperCase = /[A-Z]/.test(password);
         const hasLowerCase = /[a-z]/.test(password);
         const hasSpecialChar = /[^a-zA-Z0-9]/.test(password);
@@ -52,40 +54,48 @@ const Signup = () =>  {
         const nameRegex = /^[A-Za-z\s]+$/.test(trimmeName);
 
         if (!location.latitude || !location.longitude) {
-            setMessage("Location is required to register");
+            setModal({ open: true, type: "error", message: "Location is required to register" });
+            return;
+        }
+        if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+            setModal({ open: true, type: "error", message: "Enter a valid email address" });
             return;
         }
         if(!password) {
-            setMessage("Set a password");
+            setModal({ open: true, type: "error", message: "Set a password" });
             return;
         }
         if(!confirmPassword || password !== confirmPassword) {
-            setMessage("Password mismatch");
+            setModal({ open: true, type: "error", message: "Password mismatch" });
             return;
         }
         if( password.length < 8 || !hasUpperCase || !hasLowerCase || !hasSpecialChar) {
-            setMessage(`Too weak password \nPassword rules \nOne upper case character \nOne lowercase character \nOne special character \n atleast 8 characters`);
+            setModal({ open: true, type: "error", message: "Weak password: include uppercase, lowercase, special character and minimum 8 characters" });
             return;
         } 
         if(!nameRegex) {
-            setMessage("Name must contain only letters and spaces");
+            setModal({ open: true, type: "error", message: "Name must contain only letters and spaces" });
             return;
         }
         //disable the subit button
         setIsSubmitting(true);
 
         try {
-            const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/register`, {name, email, password, location: {lat: location.latitude, lng: location.longitude,},});
-            setMessage(res.data.message);
-            sessionStorage.setItem("pendingEmail", email);
+            const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/register`, {name: trimmeName, email: trimmedEmail, password, location: {lat: location.latitude, lng: location.longitude,},});
+            sessionStorage.setItem("pendingEmail", trimmedEmail);
+            setName("");
+            setEmail("");
+            setPassword("");
+            setConfirmPassword("");
+            setModal({ open: true, type: "success", message: res.data.message });
             navigate("/verify-otp");
         }
         catch (err) {
             if(err.response && err.response.data) {
-                setMessage(err.response.data.message);
+                setModal({ open: true, type: "error", message: err.response.data.message });
             }
             else {
-                setMessage("Something went wrong. Try again later");
+                setModal({ open: true, type: "error", message: "Something went wrong. Try again later" });
             }
         }
         finally {
@@ -146,7 +156,13 @@ const Signup = () =>  {
             <p>
                 Already have an account? <Link to={"/login"}>Log in</Link>
             </p>
-            <p className="pass-sec-message" style={{whitespace: 'pre-line'}}>{isSubmitting ? "Processing..." : message }</p>
+            <p className="pass-sec-message">{isSubmitting ? "Processing..." : ""}</p>
+            <StatusModal
+              open={modal.open}
+              type={modal.type}
+              message={modal.message}
+              onClose={() => setModal({ open: false, type: "error", message: "" })}
+            />
             </div>
         </div>
     );

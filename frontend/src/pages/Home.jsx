@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import StatusModal from "../components/StatusModal";
 import {
   FaBell,
   FaClipboardList,
@@ -24,7 +25,7 @@ const Home = () => {
   const token = sessionStorage.getItem("token");
   const user = JSON.parse(sessionStorage.getItem("user") || "null");
 
-  const [msg, setMsg] = useState("");
+  const [modal, setModal] = useState({ open: false, type: "success", title: "", message: "" });
   const [loading, setLoading] = useState(false);
 
   const [enroll, setEnroll] = useState({ age: "", phone: "", address: "", skills: "", experienceYears: 0 });
@@ -42,19 +43,18 @@ const Home = () => {
   const [locHits, setLocHits] = useState([]);
   const [pickedLoc, setPickedLoc] = useState(null);
   const [campForm, setCampForm] = useState({ campOfficerId: "" });
-  const [officerEmailSearch, setOfficerEmailSearch] = useState("");
+  const [officerAgsSearch, setOfficerAgsSearch] = useState("");
   const [officerCandidates, setOfficerCandidates] = useState([]);
-  const [selectedCampDetail, setSelectedCampDetail] = useState(null);
 
-  const [trainForm, setTrainForm] = useState({ title: "", description: "", date: "" });
+  const [trainForm, setTrainForm] = useState({ title: "", trainingType: "Disaster Basics", date: "" });
   const [opForm, setOpForm] = useState({ title: "", disasterType: "other", location: "", startsAt: "", endsAt: "", teamLeaderUsers: [] });
 
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
+  const showModal = (type, message, title = "") => setModal({ open: true, type, message, title });
 
   const loadRoleData = useCallback(async () => {
     if (!token || !user?.role) return;
     setLoading(true);
-    setMsg("");
     try {
       if (user.role === "camp_officer") {
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/volunteers/camp-officer/home-stats`, { headers });
@@ -82,7 +82,7 @@ const Home = () => {
         setTlDash(res.data);
       }
     } catch (e) {
-      setMsg(e.response?.data?.message || "Failed to load dashboard");
+      showModal("error", e.response?.data?.message || "Failed to load dashboard");
     } finally {
       setLoading(false);
     }
@@ -117,7 +117,7 @@ const Home = () => {
 
   useEffect(() => {
     if (user?.role !== "admin") return;
-    if (!officerEmailSearch || officerEmailSearch.trim().length < 2) {
+    if (!officerAgsSearch || officerAgsSearch.trim().length < 2) {
       setOfficerCandidates([]);
       return;
     }
@@ -125,7 +125,7 @@ const Home = () => {
       try {
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/volunteers/team-leaders`, {
           headers,
-          params: { page: 1, limit: 10, search: officerEmailSearch.trim() },
+          params: { page: 1, limit: 10, search: officerAgsSearch.trim() },
         });
         setOfficerCandidates(res.data.leaders || []);
       } catch {
@@ -133,7 +133,7 @@ const Home = () => {
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [officerEmailSearch, headers, user?.role]);
+  }, [officerAgsSearch, headers, user?.role]);
 
   const loadMoreCamps = async () => {
     if (campPage >= campTotalPages) return;
@@ -157,17 +157,12 @@ const Home = () => {
     setCampTotalPages(res.data.totalPages || 1);
   };
 
-  const loadCampDetail = async (campId) => {
-    try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/volunteers/camps/${campId}/detail`, { headers });
-      setSelectedCampDetail(res.data);
-    } catch (err) {
-      setMsg(err.response?.data?.message || "Failed to load camp detail");
-    }
-  };
-
   const submitEnroll = async (e) => {
     e.preventDefault();
+    if (!enroll.age || !enroll.phone || !enroll.address) {
+      showModal("error", "Age, phone and address are required");
+      return;
+    }
     try {
       await axios.post(
         `${process.env.REACT_APP_API_URL}/api/volunteers/profiles`,
@@ -179,16 +174,17 @@ const Home = () => {
         },
         { headers }
       );
-      setMsg("Enrollment saved");
+      setEnroll({ age: "", phone: "", address: "", skills: "", experienceYears: 0 });
+      showModal("success", "Enrollment saved");
     } catch (err) {
-      setMsg(err.response?.data?.message || "Enrollment failed");
+      showModal("error", err.response?.data?.message || "Enrollment failed");
     }
   };
 
   const submitCamp = async (e) => {
     e.preventDefault();
     if (!pickedLoc || !campForm.campOfficerId) {
-      setMsg("Pick a location and camp officer");
+      showModal("error", "Pick a location and camp officer");
       return;
     }
     try {
@@ -202,24 +198,26 @@ const Home = () => {
         },
         { headers }
       );
-      setMsg("Camp created");
+      showModal("success", "Camp created");
       setPickedLoc(null);
       setLocQuery("");
+      setCampForm({ campOfficerId: "" });
+      setOfficerAgsSearch("");
       loadRoleData();
     } catch (err) {
-      setMsg(err.response?.data?.message || "Camp create failed");
+      showModal("error", err.response?.data?.message || "Camp create failed");
     }
   };
 
   const submitTraining = async (e) => {
     e.preventDefault();
     if (!officerStats?.camp?._id) {
-      setMsg("No camp assigned to you");
+      showModal("error", "No camp assigned to you");
       return;
     }
     const d = trainForm.date;
     if (!d || new Date(d) < new Date()) {
-      setMsg("Training date cannot be in the past");
+      showModal("error", "Training date cannot be in the past");
       return;
     }
     try {
@@ -227,32 +225,33 @@ const Home = () => {
         `${process.env.REACT_APP_API_URL}/api/volunteers/trainings`,
         {
           title: trainForm.title,
-          description: trainForm.description,
+          trainingType: trainForm.trainingType,
           camp: officerStats.camp._id,
           date: d,
         },
         { headers }
       );
-      setMsg("Training scheduled");
+      setTrainForm({ title: "", trainingType: "Disaster Basics", date: "" });
+      showModal("success", "Training scheduled");
       loadRoleData();
     } catch (err) {
-      setMsg(err.response?.data?.message || "Failed");
+      showModal("error", err.response?.data?.message || "Failed");
     }
   };
 
   const submitOperation = async (e) => {
     e.preventDefault();
     if (!officerStats?.camp?._id) {
-      setMsg("No camp");
+      showModal("error", "No camp");
       return;
     }
     const starts = opForm.startsAt;
     if (!starts || new Date(starts) < new Date()) {
-      setMsg("Operation start cannot be in the past");
+      showModal("error", "Operation start cannot be in the past");
       return;
     }
     if (opForm.endsAt && new Date(opForm.endsAt) < new Date(opForm.startsAt)) {
-      setMsg("End must be after start");
+      showModal("error", "End must be after start");
       return;
     }
     try {
@@ -265,10 +264,11 @@ const Home = () => {
         },
         { headers }
       );
-      setMsg("Operation created");
+      setOpForm({ title: "", disasterType: "other", location: "", startsAt: "", endsAt: "", teamLeaderUsers: [] });
+      showModal("success", "Operation created");
       loadRoleData();
     } catch (err) {
-      setMsg(err.response?.data?.message || "Failed");
+      showModal("error", err.response?.data?.message || "Failed");
     }
   };
 
@@ -289,17 +289,19 @@ const Home = () => {
         </a>
       </header>
 
-      {msg ? <p className="home-inline-msg">{msg}</p> : null}
       {loading ? <p className="home-inline-msg">Loading…</p> : null}
+      <StatusModal
+        open={modal.open}
+        type={modal.type}
+        title={modal.title}
+        message={modal.message}
+        onClose={() => setModal({ open: false, type: "success", title: "", message: "" })}
+      />
 
       <section className="home-premium-hero">
         <div>
           <h2>Welcome, {user?.name || "User"}</h2>
           <p>Role-based dashboard. Use the profile menu for FAQ, contact, and logout.</p>
-        </div>
-        <div className="home-premium-role-badge">
-          <span>Role</span>
-          <strong>{user?.role}</strong>
         </div>
       </section>
 
@@ -309,8 +311,8 @@ const Home = () => {
             <FaUserPlus /> Volunteer enrollment
           </h3>
           <form className="grid-form" onSubmit={submitEnroll}>
-            <input placeholder="Age" value={enroll.age} onChange={(e) => setEnroll({ ...enroll, age: e.target.value })} />
-            <input placeholder="Phone" value={enroll.phone} onChange={(e) => setEnroll({ ...enroll, phone: e.target.value })} />
+            <input type="number" min="16" max="100" placeholder="Age" value={enroll.age} onChange={(e) => setEnroll({ ...enroll, age: e.target.value })} />
+            <input type="tel" pattern="^\+?[0-9]{8,15}$" placeholder="Phone" value={enroll.phone} onChange={(e) => setEnroll({ ...enroll, phone: e.target.value })} />
             <input placeholder="Address" value={enroll.address} onChange={(e) => setEnroll({ ...enroll, address: e.target.value })} />
             <input placeholder="Skills (comma)" value={enroll.skills} onChange={(e) => setEnroll({ ...enroll, skills: e.target.value })} />
             <button className="login-button" type="submit">
@@ -398,8 +400,12 @@ const Home = () => {
               <section className="card-section">
                 <h3>Schedule training</h3>
                 <form className="grid-form" onSubmit={submitTraining}>
-                  <input placeholder="Title" value={trainForm.title} onChange={(e) => setTrainForm({ ...trainForm, title: e.target.value })} />
-                  <input placeholder="Description" value={trainForm.description} onChange={(e) => setTrainForm({ ...trainForm, description: e.target.value })} />
+                  <input placeholder="Title" minLength={3} value={trainForm.title} onChange={(e) => setTrainForm({ ...trainForm, title: e.target.value })} />
+                  <select value={trainForm.trainingType} onChange={(e) => setTrainForm({ ...trainForm, trainingType: e.target.value })}>
+                    <option value="Disaster Basics">Disaster Basics</option>
+                    <option value="First Aid">First Aid</option>
+                    <option value="Evacuation Coordination">Evacuation Coordination</option>
+                  </select>
                   <input type="datetime-local" min={minDateTimeLocal()} value={trainForm.date} onChange={(e) => setTrainForm({ ...trainForm, date: e.target.value })} />
                   <button className="login-button" type="submit">
                     Schedule
@@ -409,7 +415,7 @@ const Home = () => {
               <section className="card-section">
                 <h3>Create disaster operation</h3>
                 <form className="grid-form" onSubmit={submitOperation}>
-                  <input placeholder="Title" value={opForm.title} onChange={(e) => setOpForm({ ...opForm, title: e.target.value })} />
+                  <input placeholder="Title" minLength={3} value={opForm.title} onChange={(e) => setOpForm({ ...opForm, title: e.target.value })} />
                   <select value={opForm.disasterType} onChange={(e) => setOpForm({ ...opForm, disasterType: e.target.value })}>
                     <option value="earthquake">Earthquake</option>
                     <option value="flood">Flood</option>
@@ -442,30 +448,30 @@ const Home = () => {
       {user?.role === "admin" && adminSummary ? (
         <>
           <section className="card-section admin-summary-grid">
-            <div>
+            <button type="button" className="home-camp-item-btn" onClick={() => navigate("/admin/directory/camps")}>
               <h4>Camps</h4>
               <strong>{adminSummary.camps}</strong>
-            </div>
-            <div>
+            </button>
+            <button type="button" className="home-camp-item-btn" onClick={() => navigate("/admin/directory/camp-officers")}>
               <h4>Camp officers</h4>
               <strong>{adminSummary.campOfficers}</strong>
-            </div>
-            <div>
+            </button>
+            <button type="button" className="home-camp-item-btn" onClick={() => navigate("/admin/directory/team-leaders")}>
               <h4>Team leaders</h4>
               <strong>{adminSummary.teamLeaders}</strong>
-            </div>
-            <div>
+            </button>
+            <button type="button" className="home-camp-item-btn" onClick={() => navigate("/admin/directory/volunteers")}>
               <h4>Volunteers</h4>
               <strong>{adminSummary.volunteers}</strong>
-            </div>
-            <div>
+            </button>
+            <button type="button" className="home-camp-item-btn" onClick={() => navigate("/admin/directory/users")}>
               <h4>Users</h4>
               <strong>{adminSummary.users}</strong>
-            </div>
-            <div>
+            </button>
+            <button type="button" className="home-camp-item-btn" onClick={() => navigate("/admin/directory/operations")}>
               <h4>Live/upcoming ops</h4>
               <strong>{adminSummary.liveOrUpcomingOperations}</strong>
-            </div>
+            </button>
           </section>
           <section className="card-section">
             <h3>Create camp (location search)</h3>
@@ -496,9 +502,9 @@ const Home = () => {
             ) : null}
             <input
               className="full-input"
-              placeholder="Search camp officer by email"
-              value={officerEmailSearch}
-              onChange={(e) => setOfficerEmailSearch(e.target.value)}
+              placeholder="Search camp officer by AGS_ID"
+              value={officerAgsSearch}
+              onChange={(e) => setOfficerAgsSearch(e.target.value)}
             />
             {officerCandidates.length > 0 ? (
               <ul className="loc-dropdown">
@@ -509,11 +515,11 @@ const Home = () => {
                       className="loc-pick"
                       onClick={() => {
                         setCampForm({ ...campForm, campOfficerId: candidate.user._id });
-                        setOfficerEmailSearch(candidate.user.email);
+                        setOfficerAgsSearch(candidate.user.AGS_ID || "");
                         setOfficerCandidates([]);
                       }}
                     >
-                      {candidate.user.email} ({candidate.user.name})
+                      {candidate.user.AGS_ID} - {candidate.user.email} ({candidate.user.name})
                     </button>
                   </li>
                 ))}
@@ -527,7 +533,7 @@ const Home = () => {
           <section className="card-section">
             <h3>Camps list</h3>
             <div className="row-gap">
-              <input className="full-input" placeholder="Search by location name" value={campSearch} onChange={(e) => setCampSearch(e.target.value)} />
+              <input className="full-input" placeholder="Search by camp officer AGS_ID" value={campSearch} onChange={(e) => setCampSearch(e.target.value)} />
               <button type="button" className="login-button" onClick={searchCamps}>
                 Search
               </button>
@@ -535,22 +541,12 @@ const Home = () => {
             <ul className="compact-list">
               {camps.map((c) => (
                 <li key={c._id}>
-                  <button type="button" className="home-camp-item-btn" onClick={() => loadCampDetail(c._id)}>
+                  <button type="button" className="home-camp-item-btn" onClick={() => navigate(`/admin/camps/${c._id}`)}>
                     {c.name} — officer: {c.campOfficer?.name || c.campOfficer}
                   </button>
                 </li>
               ))}
             </ul>
-            {selectedCampDetail?.camp ? (
-              <div className="card-section nested">
-                <h4>Camp detail</h4>
-                <p><strong>Name:</strong> {selectedCampDetail.camp.name}</p>
-                <p><strong>Officer:</strong> {selectedCampDetail.camp.campOfficer?.name || "N/A"}</p>
-                <p><strong>Volunteers:</strong> {selectedCampDetail.volunteersInCamp}</p>
-                <p><strong>Team leaders:</strong> {selectedCampDetail.teamLeadersInCamp}</p>
-                <p><strong>Live/upcoming operations:</strong> {selectedCampDetail.operations?.length || 0}</p>
-              </div>
-            ) : null}
             {campPage < campTotalPages ? (
               <button type="button" className="home-premium-link-btn ghost" onClick={loadMoreCamps}>
                 Load more

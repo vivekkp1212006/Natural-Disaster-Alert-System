@@ -2,7 +2,7 @@ const { fetchNearbyEarthquakes } = require('../services/earthquakeService');
 const { fetchRainfallForecast } = require('../services/weatherService');
 const getEarthquakeRiskLevel = require('../utils/getEarthquakeRiskLevel');
 const calculateDistance = require('../utils/calculateDistance');
-const { sendEmail } = require('../utils/sendEmail');
+const { sendStructuredEmail } = require('../utils/sendEmail');
 const User = require('../models/User');
 const Camp = require('../models/camp');
 const Alert = require('../models/Alert');
@@ -12,7 +12,12 @@ const sendAlertMailToUser = async (user, subject, text) => {
     return;
   }
   try {
-    await sendEmail(user.email, subject, text);
+    await sendStructuredEmail({
+      to: user.email,
+      subject,
+      greeting: `Hello ${user.name || 'User'},`,
+      lines: ['Action performed: Alert generated', text, `AGS ID: ${user.AGS_ID || 'N/A'}`],
+    });
   } catch (error) {
     console.error("Failed to send alert email:", error.message);
   }

@@ -26,6 +26,9 @@ const tryPromoteAfterTraining = async (userId, campOfficerId) => {
   if (!volunteer) {
     return { promoted: false, message: 'Volunteer enrollment missing' };
   }
+  if (volunteer.assignedCamp) {
+    return { promoted: false, message: 'Volunteer is already assigned to a camp' };
+  }
 
   const lat = user.location?.lat;
   const lng = user.location?.lng;
@@ -45,7 +48,11 @@ const tryPromoteAfterTraining = async (userId, campOfficerId) => {
   volunteer.approvedAt = new Date();
   await volunteer.save();
 
-  await assignVolunteerToCampTeamOrReserve(volunteer._id, nearest.camp._id);
+  try {
+    await assignVolunteerToCampTeamOrReserve(volunteer._id, nearest.camp._id);
+  } catch (error) {
+    return { promoted: false, message: error.message || 'Volunteer assignment failed' };
+  }
   await refreshVolunteerBadge(Volunteer, volunteer._id);
 
   return { promoted: true, message: 'User promoted to volunteer', camp: nearest.camp };

@@ -20,6 +20,8 @@ const {
   issueDisciplinaryAction,
   getDisciplinaryActions,
   getTeamLeaders,
+  getAdminUsers,
+  getCampOfficerVolunteers,
   getAdminSummary,
   getCampDetail,
   getCampOfficerHomeStats,
@@ -60,8 +62,10 @@ router.get(
   getTeamLeaders
 );
 router.get('/admin/summary', protect, checkNotSuspended, authorizeRoles(['admin']), getAdminSummary);
+router.get('/admin/users', protect, checkNotSuspended, authorizeRoles(['admin']), getAdminUsers);
 router.get('/camps/:campId/detail', protect, checkNotSuspended, authorizeRoles(['admin']), getCampDetail);
 router.get('/camp-officer/home-stats', protect, checkNotSuspended, authorizeRoles(['camp_officer']), getCampOfficerHomeStats);
+router.get('/camp-officer/volunteers', protect, checkNotSuspended, authorizeRoles(['camp_officer']), getCampOfficerVolunteers);
 router.get('/team-leader/dashboard', protect, checkNotSuspended, authorizeRoles(['team_leader']), getTeamLeaderDashboard);
 
 module.exports = router;

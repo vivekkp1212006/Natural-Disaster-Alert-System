@@ -2,12 +2,13 @@ import React, { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import "./style.css";
+import StatusModal from "../components/StatusModal";
 
 const RequestRole = () => {
   const navigate = useNavigate();
   const token = sessionStorage.getItem("token");
   const user = JSON.parse(sessionStorage.getItem("user") || "null");
-  const [message, setMessage] = useState("");
+  const [modal, setModal] = useState({ open: false, type: "success", message: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!token) {
@@ -35,9 +36,9 @@ const RequestRole = () => {
         { requestedRole: "volunteer" },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setMessage(res.data.message);
+      setModal({ open: true, type: "success", message: res.data.message });
     } catch (err) {
-      setMessage(err.response?.data?.message || "Something went wrong. Try again later");
+      setModal({ open: true, type: "error", message: err.response?.data?.message || "Something went wrong. Try again later" });
     } finally {
       setIsSubmitting(false);
     }
@@ -53,7 +54,13 @@ const RequestRole = () => {
             Submit volunteer request
           </button>
         </form>
-        <p>{isSubmitting ? "Processing..." : message}</p>
+        <p>{isSubmitting ? "Processing..." : ""}</p>
+        <StatusModal
+          open={modal.open}
+          type={modal.type}
+          message={modal.message}
+          onClose={() => setModal({ open: false, type: "success", message: "" })}
+        />
         <p>
           <Link to="/home">Back to home</Link>
         </p>

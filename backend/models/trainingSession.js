@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { TRAINING_TYPES } = require("../constants/trainingTypes");
 
 const trainingSessionSchema = new mongoose.Schema(
   {
@@ -10,6 +11,11 @@ const trainingSessionSchema = new mongoose.Schema(
     description: {
       type: String,
       default: ""
+    },
+    trainingType: {
+      type: String,
+      enum: TRAINING_TYPES,
+      required: true,
     },
     camp: {
       type: mongoose.Schema.Types.ObjectId,

@@ -2,13 +2,14 @@ import React, {useCallback, useEffect,useState} from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import "./style.css";
+import StatusModal from "../components/StatusModal";
 
 const GetMyAlerts = () => {
     const navigate = useNavigate();
     const token = sessionStorage.getItem("token");
     const user = JSON.parse(sessionStorage.getItem("user") || "null");
     const [isSubmitting,setIsSubmitting] = useState(false);
-    const [message,setMessage] = useState("");
+    const [modal,setModal] = useState({ open: false, type: "error", message: "" });
     const [alerts,setAlerts]= useState([]);
     const [viewMode, setViewMode] = useState("active");
 
@@ -20,13 +21,12 @@ const GetMyAlerts = () => {
                 headers: {Authorization : `Bearer ${token}`}
             });
             setAlerts(res.data.alerts || []);
-            setMessage("");
         } catch (err) {
             if(err.response && err.response.data ) {
-                setMessage(err.response.data.message)
+                setModal({ open: true, type: "error", message: err.response.data.message });
             }
             else{
-                setMessage("Something went wrong. Try again later");
+                setModal({ open: true, type: "error", message: "Something went wrong. Try again later" });
             }
         }
         finally {
@@ -76,7 +76,7 @@ const GetMyAlerts = () => {
                     </li>
                 ))}
             </ul>
-            ):(<p>{isSubmitting? "processing" : message? message : "No active alerts"}</p>)}
+            ):(<p>{isSubmitting? "processing" : "No active alerts"}</p>)}
 
             <div style={{marginTop:"15px", display:"flex", gap:"12px", flexWrap:"wrap"}}>
                 {user?.role === "user" ? <Link to="/request-role">Request volunteer</Link> : null}
@@ -89,6 +89,12 @@ const GetMyAlerts = () => {
             <div style={{marginTop:"20px"}}>
                 <button className="login-button" onClick={handleLogout}>Logout</button>
             </div>
+            <StatusModal
+              open={modal.open}
+              type={modal.type}
+              message={modal.message}
+              onClose={() => setModal({ open: false, type: "error", message: "" })}
+            />
             </div>
         </div>
     )

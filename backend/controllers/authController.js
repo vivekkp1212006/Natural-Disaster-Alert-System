@@ -3,7 +3,7 @@ const Volunteer = require('../models/volunteer');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { otpGenerator } = require('../utils/generateOtp');
-const { sendEmail } = require('../utils/sendEmail');
+const { sendStructuredEmail } = require('../utils/sendEmail');
 const validatePassword = require('../utils/validatePassword');
 const { findNearestCamp } = require('../services/nearestCampService');
 const { ensureTrainingRows } = require('./campOfficerRoleController');
@@ -15,16 +15,23 @@ const { computeBadge } = require('../services/rankingService');
 const registerUser = async (req, res) => {
   try {
     const { name, email, password, location, role } = req.body;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
     // 1. Check required fields
-    if (!name || !email || !password || !location ) {
+    if (!name || !normalizedEmail || !password || !location ) {
       return res.status(400).json({
         message: 'Please fill all required fields',
       });
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+    if (!Number.isFinite(Number(location?.lat)) || !Number.isFinite(Number(location?.lng))) {
+      return res.status(400).json({ message: 'Invalid location coordinates' });
+    }
 
     // 2. Check if user already exists
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email: normalizedEmail });
     if (userExists && userExists.emailVerified) {
       return res.status(400).json({
         message: 'User already exists',
@@ -60,12 +67,15 @@ const registerUser = async (req, res) => {
       userExists.emailOtpPurpose = "signup" ;
       await userExists.save();
 
-      const subject = "Your one time verification code:";
-      const text = `Your OTP for sign-up is : ${emailOtp}`;
-      await sendEmail(email,subject,text);
+      await sendStructuredEmail({
+        to: normalizedEmail,
+        subject: 'Email verification OTP',
+        greeting: `Hello ${trimmedName},`,
+        lines: [`Your OTP for sign-up is: ${emailOtp}`, 'Do not share this OTP with anyone.'],
+      });
 
       return res.status(201).json({
-        message: `OTP sent to ${email}`,
+        message: `OTP sent to ${normalizedEmail}`,
       });
     }
 
@@ -81,7 +91,7 @@ const registerUser = async (req, res) => {
     // 3. Create new user
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       location,
       role, // optional (defaults to 'user')
@@ -91,12 +101,15 @@ const registerUser = async (req, res) => {
       emailVerified: false,
     });
 
-      const subject = "Your one time verification code:";
-      const text = `Your OTP for sign-up is : ${emailOtp}`;
-      await sendEmail(email,subject,text);
+      await sendStructuredEmail({
+        to: normalizedEmail,
+        subject: 'Email verification OTP',
+        greeting: `Hello ${trimmedName},`,
+        lines: [`Your OTP for sign-up is: ${emailOtp}`, 'Do not share this OTP with anyone.'],
+      });
 
       return res.status(201).json({
-        message: `OTP sent to ${email}`,
+        message: `OTP sent to ${normalizedEmail}`,
       });
 
   } catch (error) {
@@ -112,15 +125,22 @@ const registerUser = async (req, res) => {
 const verifyEmailOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
-    if (!email || !otp) {
+    if (!normalizedEmail || !otp) {
       return res.status(400).json({
         message: "Email and OTP are required",
       });
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+    if (!/^\d{4,8}$/.test(String(otp))) {
+      return res.status(400).json({ message: "Invalid OTP format" });
+    }
 
     // logic will come next
-    const user = await User.findOne({ email});
+    const user = await User.findOne({ email: normalizedEmail});
 
     if(!user) {
       return res.status(400).json ({
@@ -171,12 +191,16 @@ const verifyEmailOtp = async (req, res) => {
 const forgotPassword = async (req,res) => { 
   try { 
     const {email} = req.body; 
-    if (!email) { 
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) { 
       return res.status(400).json({ 
         message: "Email required" 
       }); 
     } 
-    const user = await User.findOne({ email }); 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+    const user = await User.findOne({ email: normalizedEmail }); 
     if(user && user.emailVerified) {
       const now = Date.now();
       if(user.otpLockUntil && now < user.otpLockUntil) {
@@ -220,9 +244,12 @@ const forgotPassword = async (req,res) => {
 
 
       // sending mail 
-      const subject = "Your one time verification code:"; 
-      const text = `Your OTP for password reset is : ${emailOtp} \n Do not share OTP with anyone`;
-      await sendEmail(email,subject,text); 
+      await sendStructuredEmail({
+        to: normalizedEmail,
+        subject: 'Password reset OTP',
+        greeting: `Hello ${user.name},`,
+        lines: [`Your OTP for password reset is: ${emailOtp}`, 'Do not share this OTP with anyone.'],
+      });
     }
 
     return res.status(200).json ({ 
@@ -241,12 +268,19 @@ const forgotPassword = async (req,res) => {
 const resetPassword = async (req, res) => { 
   try { 
     const { email, otp, newPassword } = req.body; 
-    if(!email || !otp || !newPassword) { 
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if(!normalizedEmail || !otp || !newPassword) { 
       return res.status(400).json ({ 
         message: "Bad request" 
       }); 
     } 
-    const user = await User.findOne({ email }); 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+    if (!/^\d{4,8}$/.test(String(otp))) {
+      return res.status(400).json({ message: "Invalid OTP format" });
+    }
+    const user = await User.findOne({ email: normalizedEmail }); 
     if(!user) { 
       return res.status(400).json({ 
         message: "Invalid OTP or Email" 
@@ -326,16 +360,20 @@ const resetPassword = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
     // 1. Check if email and password provided
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return res.status(400).json({
         message: 'Please provide email and password',
       });
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
 
     // 2. Find user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(401).json({
         message: 'Invalid credentials',
@@ -386,6 +424,7 @@ const loginUser = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        AGS_ID: user.AGS_ID,
         role: user.role,
         location: user.location,
       },
@@ -421,6 +460,7 @@ const getProfile = async (req, res) => {
         _id: dbUser._id,
         name: dbUser.name,
         email: dbUser.email,
+        AGS_ID: dbUser.AGS_ID,
         role: dbUser.role,
         location: dbUser.location,
         requestStatus: dbUser.requestStatus,
@@ -500,11 +540,16 @@ const requestRoleUpgrade = async (req, res) => {
       ? `Nearest training camp: ${nearest.camp.name} (approx ${nearest.distanceKm.toFixed(1)} km away).`
       : 'Complete your trainings with a camp officer. A camp will be assigned once you are promoted.';
 
-    await sendEmail(
-      user.email,
-      'Volunteer training next steps',
-      `Hello ${user.name},\n\nThank you for requesting the volunteer role.\n${campLine}\n\nAttend training at the nearest camp and complete the required training modules.\n\nRegards,\nAegis Disaster Response`
-    );
+    await sendStructuredEmail({
+      to: user.email,
+      subject: 'Volunteer request received',
+      greeting: `Hello ${user.name},`,
+      lines: [
+        'Thank you for requesting the volunteer role.',
+        campLine,
+        'Attend training at the nearest camp and complete the required training modules.',
+      ],
+    });
 
     res.status(201).json({
       message: 'Volunteer request submitted successfully',

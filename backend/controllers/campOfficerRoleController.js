@@ -27,10 +27,7 @@ const getPendingVolunteerRequests = async (req, res) => {
       requestedRole: 'volunteer',
     };
     if (search) {
-      filter.$or = [
-        { name: new RegExp(search, 'i') },
-        { email: new RegExp(search, 'i') },
-      ];
+      filter.AGS_ID = new RegExp(`^${search}`, 'i');
     }
 
     const total = await User.countDocuments(filter);

@@ -18,6 +18,8 @@ import TermsPage from "./pages/TermsPage";
 import VolunteerSafetyPage from "./pages/VolunteerSafetyPage";
 import LegalPage from "./pages/LegalPage";
 import HelpPage from "./pages/HelpPage";
+import AdminCampDetail from "./pages/AdminCampDetail";
+import AdminDirectory from "./pages/AdminDirectory";
 
 function App() {
   return (
@@ -36,6 +38,8 @@ function App() {
           <Route path="/admin/role-requests" element={<AdminRoleRequests />} />
           <Route path="/admin/alerts" element={<AdminAlerts />} />
           <Route path="/management" element={<DisasterManagement />} />
+          <Route path="/admin/camps/:campId" element={<AdminCampDetail />} />
+          <Route path="/admin/directory/:category" element={<AdminDirectory />} />
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />

@@ -77,6 +77,7 @@ const AppShell = () => {
             <div className="app-shell-dropdown">
               <p className="app-shell-drop-name">{user?.name}</p>
               <p className="app-shell-drop-meta">Email: {user?.email || "N/A"}</p>
+              <p className="app-shell-drop-meta">AGS ID: {user?.AGS_ID || "N/A"}</p>
               <p className="app-shell-drop-meta">Role: {user?.role}</p>
               {user?.role !== "user" && badge ? <p className="app-shell-badge">Badge: {badge}</p> : null}
               {user?.suspension?.active ? (

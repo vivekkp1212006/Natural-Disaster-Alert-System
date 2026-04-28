@@ -2,12 +2,13 @@ import React, {useEffect, useState} from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "./style.css";
+import StatusModal from "../components/StatusModal";
 
 const ResetPassword = () => {
     const [otp, setOtp] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [message, setMessage] = useState("");
+    const [modal, setModal] = useState({ open: false, type: "error", message: "" });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const email = sessionStorage.getItem("resetEmail");
@@ -16,7 +17,7 @@ const ResetPassword = () => {
 
     useEffect( () =>{
         if(email == null) {
-            setMessage("Unauthorized access");
+            setModal({ open: true, type: "error", message: "Unauthorized access" });
             navigate("/forgot-password");
         }
     },[email, navigate]);
@@ -28,20 +29,20 @@ const ResetPassword = () => {
         const hasLowerCase = /[a-z]/.test(newPassword);
         const hasSpecialChar = /[^a-zA-Z0-9]/.test(newPassword);
 
-        if(!otp) {
-            setMessage("OTP required");
+        if(!/^\d{4,8}$/.test(otp.trim())) {
+            setModal({ open: true, type: "error", message: "OTP required" });
             return;
         }
         if(!newPassword) {
-            setMessage("Enter new password");
+            setModal({ open: true, type: "error", message: "Enter new password" });
             return;
         }
         if(!confirmPassword || newPassword !== confirmPassword) {
-            setMessage("Password mismatch");
+            setModal({ open: true, type: "error", message: "Password mismatch" });
             return;
         }
         if( newPassword.length < 8 || !hasUpperCase || !hasLowerCase || !hasSpecialChar) {
-            setMessage(`Too weak password \nPassword rules \nOne upper case character \nOne lowercase character \nOne special character \n atleast 8 characters`);
+            setModal({ open: true, type: "error", message: "Weak password: include uppercase, lowercase, special character and minimum 8 characters" });
             return;
         } 
 
@@ -50,16 +51,19 @@ const ResetPassword = () => {
 
         try {
         const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/reset-password`,{email, otp, newPassword});
-        setMessage(res.data.message);
+        setModal({ open: true, type: "success", message: res.data.message });
         sessionStorage.removeItem("resetEmail");
+        setOtp("");
+        setNewPassword("");
+        setConfirmPassword("");
         navigate("/login");
         }
         catch(err) {
             if(err.response && err.response.data) {
-                setMessage(err.response.data.message);
+                setModal({ open: true, type: "error", message: err.response.data.message });
             }
             else {
-                setMessage("Something went wrong. Try again later");
+                setModal({ open: true, type: "error", message: "Something went wrong. Try again later" });
             }
         }
         finally {
@@ -107,7 +111,13 @@ const ResetPassword = () => {
                         Reset password
                     </button>
                 </form>
-                <p>{isSubmitting ? "Processing..." : message }</p>
+                <p>{isSubmitting ? "Processing..." : ""}</p>
+                <StatusModal
+                  open={modal.open}
+                  type={modal.type}
+                  message={modal.message}
+                  onClose={() => setModal({ open: false, type: "error", message: "" })}
+                />
            </div> 
         </div>
     );

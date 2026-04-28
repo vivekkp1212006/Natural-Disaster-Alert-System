@@ -325,6 +325,13 @@
     border: 1px solid #d4d4d4;
     border-radius: 6px;
     box-sizing: border-box;
+    color: #1c2233;
+    background: #fff;
+}
+
+.grid-form input::placeholder,
+.full-input::placeholder {
+    color: #5d667a;
 }
 
 .responsive-table {
@@ -531,26 +538,6 @@
     opacity: 0.95;
 }
 
-.home-premium-role-badge {
-    min-width: 160px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 12px;
-    padding: 12px 16px;
-    text-align: center;
-}
-
-.home-premium-role-badge span {
-    font-size: 12px;
-    text-transform: uppercase;
-    opacity: 0.9;
-}
-
-.home-premium-role-badge strong {
-    display: block;
-    font-size: 18px;
-    margin-top: 6px;
-}
-
 .home-premium-grid {
     margin-top: 20px;
     display: grid;
@@ -713,11 +700,19 @@
     padding: 8px 10px;
     border: none;
     background: transparent;
-    color: #fff;
+    color: #1c2233;
     cursor: pointer;
 }
 
 .loc-pick:hover {
+    background: rgba(31, 35, 48, 0.08);
+}
+
+.home-premium-page .loc-pick {
+    color: #fff;
+}
+
+.home-premium-page .loc-pick:hover {
     background: rgba(255, 255, 255, 0.12);
 }
 
@@ -786,6 +781,7 @@
     background: rgba(0, 0, 0, 0.25);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    overflow: visible;
 }
 
 .app-shell-logo-link {
@@ -811,6 +807,7 @@
     display: flex;
     gap: 10px;
     align-items: center;
+    overflow: visible;
 }
 
 .app-shell-top-link {
@@ -850,6 +847,7 @@
 
 .app-shell-dropdown {
     position: absolute;
+    top: 100%;
     right: 0;
     margin-top: 8px;
     min-width: 220px;
@@ -858,6 +856,46 @@
     border-radius: 12px;
     padding: 12px;
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    z-index: 3000;
+    max-height: min(70vh, 420px);
+    overflow-y: auto;
+}
+
+.status-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 24, 39, 0.45);
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-modal-card {
+    width: min(460px, 92vw);
+    background: #fff;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+}
+
+.status-modal-card h3 {
+    margin: 0 0 10px;
+    color: #111827;
+}
+
+.status-modal-card p,
+.status-modal-card label,
+.status-modal-card li {
+    color: #1f2937;
+}
+
+.status-modal-card.error {
+    border-left: 5px solid #c62828;
+}
+
+.status-modal-card.success {
+    border-left: 5px solid #2e7d32;
 }
 
 .app-shell-drop-name {
@@ -943,4 +981,24 @@
     font-weight: 600;
     cursor: pointer;
     padding: 0;
+}
+
+.login-box input,
+.login-box select,
+.management-box input,
+.management-box select,
+.card-section input,
+.card-section select,
+.card-section textarea {
+    color: #1c2233;
+}
+
+.login-box label,
+.management-box label,
+.card-section label,
+.login-box p,
+.management-box p,
+.card-section p,
+.card-section li {
+    color: #1f2330;
 }

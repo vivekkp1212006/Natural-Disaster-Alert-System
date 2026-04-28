@@ -2,13 +2,14 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import "./style.css";
+import StatusModal from "../components/StatusModal";
 
 const AdminAlerts = () => {
   const navigate = useNavigate();
   const token = sessionStorage.getItem("token");
   const user = JSON.parse(sessionStorage.getItem("user") || "null");
   const [alerts, setAlerts] = useState([]);
-  const [message, setMessage] = useState("");
+  const [modal, setModal] = useState({ open: false, type: "error", message: "" });
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -18,7 +19,7 @@ const AdminAlerts = () => {
     }
 
     if (user?.role !== "admin") {
-      setMessage("Only admin can access this page");
+      setModal({ open: true, type: "error", message: "Only admin can access this page" });
       return;
     }
 
@@ -30,7 +31,7 @@ const AdminAlerts = () => {
         });
         setAlerts(res.data.alerts || []);
       } catch (err) {
-        setMessage(err.response?.data?.message || "Failed to load alerts");
+        setModal({ open: true, type: "error", message: err.response?.data?.message || "Failed to load alerts" });
       } finally {
         setIsLoading(false);
       }
@@ -44,7 +45,12 @@ const AdminAlerts = () => {
       <div className="login-box">
         <h2>All Alerts (Admin)</h2>
         {isLoading ? <p>Loading...</p> : null}
-        {message ? <p>{message}</p> : null}
+        <StatusModal
+          open={modal.open}
+          type={modal.type}
+          message={modal.message}
+          onClose={() => setModal({ open: false, type: "error", message: "" })}
+        />
 
         {alerts.length === 0 ? (
           <p>No alerts found</p>

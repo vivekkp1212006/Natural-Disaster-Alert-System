@@ -2,10 +2,11 @@ import axios from "axios";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./style.css";
+import StatusModal from "../components/StatusModal";
 
 const VerifyOtp = () => {
   const [otp, setOtp] = useState("");
-  const [message, setMessage] = useState("");
+  const [modal, setModal] = useState({ open: false, type: "error", message: "" });
   const navigate = useNavigate();
 
   const email = sessionStorage.getItem("pendingEmail");
@@ -15,17 +16,22 @@ const VerifyOtp = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!/^\d{4,8}$/.test(otp.trim())) {
+      setModal({ open: true, type: "error", message: "Enter a valid OTP" });
+      return;
+    }
     // API call will come next
     try{
         const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/verify-email`, {email, otp});
-        setMessage(res.data.message);
+        setModal({ open: true, type: "success", message: res.data.message });
+        setOtp("");
         sessionStorage.removeItem("pendingEmail");
         if(res.data.message === "Email verified successfully") {
             navigate("/login");
         }
     }
     catch(error) {
-        setMessage(error.response?.data?.message || 'Verification Failed');
+        setModal({ open: true, type: "error", message: error.response?.data?.message || 'Verification Failed' });
     }
 
   };
@@ -48,7 +54,12 @@ const VerifyOtp = () => {
             <button type="submit">Verify</button>
           </form>
 
-          {message && <p>{message}</p>}
+          <StatusModal
+            open={modal.open}
+            type={modal.type}
+            message={modal.message}
+            onClose={() => setModal({ open: false, type: "error", message: "" })}
+          />
       </div>
     </div>
   );

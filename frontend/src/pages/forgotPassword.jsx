@@ -2,10 +2,11 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "./style.css";
+import StatusModal from "../components/StatusModal";
 
 const ForgotPassword = () => {
     const [email, setEmail] = useState("");
-    const [message, setMessage] = useState("");
+    const [modal, setModal] = useState({ open: false, type: "error", message: "" });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const navigate = useNavigate();
@@ -17,8 +18,9 @@ const ForgotPassword = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!email) {
-            setMessage("Email required");
+        const trimmedEmail = email.trim();
+        if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+            setModal({ open: true, type: "error", message: "Enter a valid email address" });
             return;
         }
 
@@ -27,18 +29,19 @@ const ForgotPassword = () => {
         try {
             const res = await axios.post(
                 `${process.env.REACT_APP_API_URL}/api/auth/forgot-password`,
-                { email }
+                { email: trimmedEmail }
             );
 
-            setMessage(res.data.message);
-            sessionStorage.setItem("resetEmail",email);
+            setModal({ open: true, type: "success", message: res.data.message });
+            sessionStorage.setItem("resetEmail", trimmedEmail);
+            setEmail("");
             navigate("/reset-password")
         }
         catch (err) {
             if( err.response && err.response.data ) {
-                setMessage(err.response.data.message);
+                setModal({ open: true, type: "error", message: err.response.data.message });
             } else {
-                setMessage("Something went wrong. Try again later");
+                setModal({ open: true, type: "error", message: "Something went wrong. Try again later" });
             }
         } finally {
             setIsSubmitting(false);
@@ -66,7 +69,12 @@ const ForgotPassword = () => {
                     </button>
                 </form>
 
-                <p>{message}</p>
+                <StatusModal
+                  open={modal.open}
+                  type={modal.type}
+                  message={modal.message}
+                  onClose={() => setModal({ open: false, type: "error", message: "" })}
+                />
             </div>
         </div>
     );

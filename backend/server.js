@@ -10,6 +10,7 @@ const weatherRoutes= require('./routes/weatherRoutes');
 const alertRoutes = require('./routes/alertRoute');
 const volunteerRoutes = require('./routes/volunteerRoutes');
 const locationRoutes = require('./routes/locationRoutes');
+const { backfillMissingAgsIds } = require('./utils/agsId');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -17,7 +18,9 @@ const PORT = process.env.PORT || 5001;
 app.use(cors());
 app.use(express.json());
 
-connectDB();
+connectDB().then(async () => {
+  await backfillMissingAgsIds();
+});
 require('./cron/alertCron');
 
 

@@ -9,6 +9,12 @@ const assignVolunteerToCampTeamOrReserve = async (volunteerId, campId) => {
   const volunteer = await Volunteer.findById(volunteerId);
   const camp = await Camp.findById(campId);
   if (!volunteer || !camp) return;
+  if (volunteer.assignedCamp && String(volunteer.assignedCamp) !== String(camp._id)) {
+    throw new Error('Volunteer is already assigned to another camp');
+  }
+
+  await Camp.updateMany({ reserveVolunteers: volunteer._id }, { $pull: { reserveVolunteers: volunteer._id } });
+  await Team.updateMany({ members: volunteer._id }, { $pull: { members: volunteer._id } });
 
   volunteer.assignedCamp = camp._id;
   volunteer.inReserve = false;

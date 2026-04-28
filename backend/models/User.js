@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { getNextAgsId } = require('../utils/agsId');
 
 const userSchema = new mongoose.Schema(
   {
@@ -13,6 +14,12 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
       lowercase: true,
+    },
+    AGS_ID: {
+      type: String,
+      unique: true,
+      uppercase: true,
+      index: true,
     },
 
     password: {
@@ -109,5 +116,16 @@ const userSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+userSchema.pre('validate', async function assignAgsId(next) {
+  try {
+    if (!this.AGS_ID) {
+      this.AGS_ID = await getNextAgsId();
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 module.exports = mongoose.model('User', userSchema);
