@@ -42,6 +42,9 @@ const Home = () => {
   const [locHits, setLocHits] = useState([]);
   const [pickedLoc, setPickedLoc] = useState(null);
   const [campForm, setCampForm] = useState({ campOfficerId: "" });
+  const [officerEmailSearch, setOfficerEmailSearch] = useState("");
+  const [officerCandidates, setOfficerCandidates] = useState([]);
+  const [selectedCampDetail, setSelectedCampDetail] = useState(null);
 
   const [trainForm, setTrainForm] = useState({ title: "", description: "", date: "" });
   const [opForm, setOpForm] = useState({ title: "", disasterType: "other", location: "", startsAt: "", endsAt: "", teamLeaderUsers: [] });
@@ -112,6 +115,26 @@ const Home = () => {
     return () => clearTimeout(t);
   }, [locQuery, headers]);
 
+  useEffect(() => {
+    if (user?.role !== "admin") return;
+    if (!officerEmailSearch || officerEmailSearch.trim().length < 2) {
+      setOfficerCandidates([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/volunteers/team-leaders`, {
+          headers,
+          params: { page: 1, limit: 10, search: officerEmailSearch.trim() },
+        });
+        setOfficerCandidates(res.data.leaders || []);
+      } catch {
+        setOfficerCandidates([]);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [officerEmailSearch, headers, user?.role]);
+
   const loadMoreCamps = async () => {
     if (campPage >= campTotalPages) return;
     const next = campPage + 1;
@@ -132,6 +155,15 @@ const Home = () => {
     setCamps(res.data.camps || []);
     setCampPage(1);
     setCampTotalPages(res.data.totalPages || 1);
+  };
+
+  const loadCampDetail = async (campId) => {
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/volunteers/camps/${campId}/detail`, { headers });
+      setSelectedCampDetail(res.data);
+    } catch (err) {
+      setMsg(err.response?.data?.message || "Failed to load camp detail");
+    }
   };
 
   const submitEnroll = async (e) => {
@@ -442,7 +474,15 @@ const Home = () => {
               <ul className="loc-dropdown">
                 {locHits.map((h, i) => (
                   <li key={i}>
-                    <button type="button" className="loc-pick" onClick={() => setPickedLoc(h)}>
+                    <button
+                      type="button"
+                      className="loc-pick"
+                      onClick={() => {
+                        setPickedLoc(h);
+                        setLocHits([]);
+                        setLocQuery(h.name);
+                      }}
+                    >
                       {h.name}
                     </button>
                   </li>
@@ -456,10 +496,30 @@ const Home = () => {
             ) : null}
             <input
               className="full-input"
-              placeholder="Camp officer user id (team leader)"
-              value={campForm.campOfficerId}
-              onChange={(e) => setCampForm({ ...campForm, campOfficerId: e.target.value })}
+              placeholder="Search camp officer by email"
+              value={officerEmailSearch}
+              onChange={(e) => setOfficerEmailSearch(e.target.value)}
             />
+            {officerCandidates.length > 0 ? (
+              <ul className="loc-dropdown">
+                {officerCandidates.map((candidate) => (
+                  <li key={candidate.user._id}>
+                    <button
+                      type="button"
+                      className="loc-pick"
+                      onClick={() => {
+                        setCampForm({ ...campForm, campOfficerId: candidate.user._id });
+                        setOfficerEmailSearch(candidate.user.email);
+                        setOfficerCandidates([]);
+                      }}
+                    >
+                      {candidate.user.email} ({candidate.user.name})
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {campForm.campOfficerId ? <p className="picked-loc">Selected officer id: {campForm.campOfficerId}</p> : null}
             <button className="login-button" type="button" onClick={submitCamp}>
               Create camp
             </button>
@@ -475,10 +535,22 @@ const Home = () => {
             <ul className="compact-list">
               {camps.map((c) => (
                 <li key={c._id}>
-                  {c.name} — officer: {c.campOfficer?.name || c.campOfficer}
+                  <button type="button" className="home-camp-item-btn" onClick={() => loadCampDetail(c._id)}>
+                    {c.name} — officer: {c.campOfficer?.name || c.campOfficer}
+                  </button>
                 </li>
               ))}
             </ul>
+            {selectedCampDetail?.camp ? (
+              <div className="card-section nested">
+                <h4>Camp detail</h4>
+                <p><strong>Name:</strong> {selectedCampDetail.camp.name}</p>
+                <p><strong>Officer:</strong> {selectedCampDetail.camp.campOfficer?.name || "N/A"}</p>
+                <p><strong>Volunteers:</strong> {selectedCampDetail.volunteersInCamp}</p>
+                <p><strong>Team leaders:</strong> {selectedCampDetail.teamLeadersInCamp}</p>
+                <p><strong>Live/upcoming operations:</strong> {selectedCampDetail.operations?.length || 0}</p>
+              </div>
+            ) : null}
             {campPage < campTotalPages ? (
               <button type="button" className="home-premium-link-btn ghost" onClick={loadMoreCamps}>
                 Load more

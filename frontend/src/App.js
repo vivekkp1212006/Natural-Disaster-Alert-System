@@ -12,6 +12,12 @@ import RequestRole from "./pages/requestRole";
 import AdminRoleRequests from "./pages/adminRoleRequests";
 import AdminAlerts from "./pages/adminAlerts";
 import DisasterManagement from "./pages/disasterManagement";
+import FaqPage from "./pages/FaqPage";
+import PrivacyPage from "./pages/PrivacyPage";
+import TermsPage from "./pages/TermsPage";
+import VolunteerSafetyPage from "./pages/VolunteerSafetyPage";
+import LegalPage from "./pages/LegalPage";
+import HelpPage from "./pages/HelpPage";
 
 function App() {
   return (
@@ -30,6 +36,12 @@ function App() {
           <Route path="/admin/role-requests" element={<AdminRoleRequests />} />
           <Route path="/admin/alerts" element={<AdminAlerts />} />
           <Route path="/management" element={<DisasterManagement />} />
+          <Route path="/faq" element={<FaqPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/volunteer-safety" element={<VolunteerSafetyPage />} />
+          <Route path="/legal" element={<LegalPage />} />
+          <Route path="/help" element={<HelpPage />} />
         </Route>
       </Routes>
     </Router>

@@ -555,7 +555,7 @@ const getTeamLeaders = async (req, res) => {
 
     const userFilter = { role: 'team_leader' };
     if (search) {
-      userFilter.name = new RegExp(search, 'i');
+      userFilter.$or = [{ name: new RegExp(search, 'i') }, { email: new RegExp(search, 'i') }];
     }
 
     const users = await User.find(userFilter).select('name email role').skip(skip).limit(limit);
@@ -577,13 +577,17 @@ const getTeamLeaders = async (req, res) => {
 
 const getAdminSummary = async (req, res) => {
   try {
+    const now = new Date();
     const [camps, officers, leaders, volunteers, users, ops] = await Promise.all([
       Camp.countDocuments(),
       User.countDocuments({ role: 'camp_officer' }),
       User.countDocuments({ role: 'team_leader' }),
       User.countDocuments({ role: 'volunteer' }),
       User.countDocuments({ role: 'user' }),
-      DisasterOperation.countDocuments({ status: { $in: ['planned', 'active'] } }),
+      DisasterOperation.countDocuments({
+        status: { $in: ['planned', 'active'] },
+        $or: [{ endsAt: null }, { endsAt: { $exists: false } }, { endsAt: { $gte: now } }],
+      }),
     ]);
     res.json({ camps, campOfficers: officers, teamLeaders: leaders, volunteers, users, liveOrUpcomingOperations: ops });
   } catch (error) {
@@ -593,6 +597,7 @@ const getAdminSummary = async (req, res) => {
 
 const getCampDetail = async (req, res) => {
   try {
+    const now = new Date();
     const camp = await Camp.findById(req.params.campId).populate('campOfficer', 'name email');
     if (!camp) {
       return res.status(404).json({ message: 'Camp not found' });
@@ -606,6 +611,7 @@ const getCampDetail = async (req, res) => {
     const operations = await DisasterOperation.find({
       camp: camp._id,
       status: { $in: ['planned', 'active'] },
+      $or: [{ endsAt: null }, { endsAt: { $exists: false } }, { endsAt: { $gte: now } }],
     }).sort({ startsAt: 1 });
 
     res.json({
