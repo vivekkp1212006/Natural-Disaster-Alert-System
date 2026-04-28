@@ -20,6 +20,7 @@ const {
   issueDisciplinaryAction,
   getDisciplinaryActions,
   getTeamLeaders,
+  getCampOfficerTeamLeaders,
   getAdminUsers,
   getCampOfficerVolunteers,
   getAdminSummary,
@@ -61,6 +62,7 @@ router.get(
   authorizeRoles(['camp_officer', 'admin']),
   getTeamLeaders
 );
+router.get('/camp-officer/team-leaders', protect, checkNotSuspended, authorizeRoles(['camp_officer']), getCampOfficerTeamLeaders);
 router.get('/admin/summary', protect, checkNotSuspended, authorizeRoles(['admin']), getAdminSummary);
 router.get('/admin/users', protect, checkNotSuspended, authorizeRoles(['admin']), getAdminUsers);
 router.get('/camps/:campId/detail', protect, checkNotSuspended, authorizeRoles(['admin']), getCampDetail);

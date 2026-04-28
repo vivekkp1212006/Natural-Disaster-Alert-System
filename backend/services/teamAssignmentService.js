@@ -25,6 +25,13 @@ const assignVolunteerToCampTeamOrReserve = async (volunteerId, campId) => {
 
   for (const team of teams) {
     if (team.members.length < MAX_MEMBERS) {
+      if (team.members.some((id) => String(id) === String(volunteer._id))) {
+        volunteer.team = team._id;
+        volunteer.inReserve = false;
+        await volunteer.save();
+        await refreshVolunteerBadge(Volunteer, volunteer._id);
+        return;
+      }
       team.members.push(volunteer._id);
       await team.save();
       volunteer.team = team._id;
@@ -68,6 +75,11 @@ const promoteFromReserveIfNeeded = async (campId) => {
   for (const reserveId of [...camp.reserveVolunteers]) {
     for (const team of teams) {
       if (team.members.length < MAX_MEMBERS) {
+        if (team.members.some((id) => String(id) === String(reserveId))) {
+          camp.reserveVolunteers = camp.reserveVolunteers.filter((id) => String(id) !== String(reserveId));
+          await camp.save();
+          return;
+        }
         team.members.push(reserveId);
         await team.save();
         await Volunteer.findByIdAndUpdate(reserveId, {

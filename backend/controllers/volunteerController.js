@@ -123,11 +123,13 @@ const getCampOfficerVolunteers = async (req, res) => {
       return res.json({ volunteers: [], page, limit, total: 0, totalPages: 0 });
     }
 
-    const filter = { assignedCamp: camp._id };
+    const roleFilter = { role: { $ne: 'team_leader' } };
     if (search) {
-      const users = await User.find({ AGS_ID: new RegExp(`^${search}`, 'i') }).select('_id');
-      filter.user = { $in: users.map((u) => u._id) };
+      roleFilter.AGS_ID = new RegExp(`^${search}`, 'i');
     }
+    const users = await User.find(roleFilter).select('_id');
+
+    const filter = { assignedCamp: camp._id, user: { $in: users.map((u) => u._id) } };
 
     const total = await Volunteer.countDocuments(filter);
     const volunteers = await Volunteer.find(filter)
@@ -185,11 +187,12 @@ const getVolunteers = async (req, res) => {
     const skip = (page - 1) * limit;
     const search = (req.query.search || '').trim();
 
-    const filter = {};
+    const userFilter = { role: { $ne: 'team_leader' } };
     if (search) {
-      const users = await User.find({ AGS_ID: new RegExp(`^${search}`, 'i') }).select('_id');
-      filter.user = { $in: users.map((u) => u._id) };
+      userFilter.AGS_ID = new RegExp(`^${search}`, 'i');
     }
+    const users = await User.find(userFilter).select('_id');
+    const filter = { user: { $in: users.map((u) => u._id) } };
 
     const total = await Volunteer.countDocuments(filter);
     const volunteers = await Volunteer.find(filter)
@@ -557,8 +560,14 @@ const markTeamLeader = async (req, res) => {
     }
 
     await pullVolunteerFromTeam(volunteer._id);
+    await Team.deleteMany({ leader: volunteer.user._id });
+    await Camp.updateMany({ reserveVolunteers: volunteer._id }, { $pull: { reserveVolunteers: volunteer._id } });
 
     volunteer.teamLeader = true;
+    volunteer.inReserve = false;
+    volunteer.team = null;
+    volunteer.status = 'approved';
+    volunteer.assignedCamp = camp._id;
     await volunteer.save();
 
     await User.findByIdAndUpdate(volunteer.user._id, { role: 'team_leader' });
@@ -575,6 +584,37 @@ const markTeamLeader = async (req, res) => {
     await refreshVolunteerBadge(Volunteer, volunteer._id);
 
     res.json({ message: 'Volunteer promoted as team leader', volunteer });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+const getCampOfficerTeamLeaders = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const skip = (page - 1) * limit;
+    const search = (req.query.search || '').trim();
+
+    const camp = await Camp.findOne({ campOfficer: req.user.id });
+    if (!camp) {
+      return res.json({ leaders: [], page, limit, total: 0, totalPages: 0 });
+    }
+
+    const userFilter = { role: 'team_leader' };
+    if (search) {
+      userFilter.AGS_ID = new RegExp(`^${search}`, 'i');
+    }
+    const users = await User.find(userFilter).select('_id name email role AGS_ID').skip(skip).limit(limit);
+    const scoped = [];
+    for (const u of users) {
+      const vol = await Volunteer.findOne({ user: u._id, assignedCamp: camp._id });
+      if (vol) {
+        scoped.push({ user: u, volunteer: vol });
+      }
+    }
+    const total = await Volunteer.countDocuments({ assignedCamp: camp._id, teamLeader: true });
+    res.json({ leaders: scoped, page, limit, total, totalPages: Math.ceil(total / limit) });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -858,6 +898,7 @@ module.exports = {
   issueDisciplinaryAction,
   getDisciplinaryActions,
   getTeamLeaders,
+  getCampOfficerTeamLeaders,
   getAdminUsers,
   getCampOfficerVolunteers,
   getAdminSummary,

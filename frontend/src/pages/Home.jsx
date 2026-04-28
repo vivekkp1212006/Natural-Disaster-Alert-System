@@ -48,6 +48,9 @@ const Home = () => {
 
   const [trainForm, setTrainForm] = useState({ title: "", trainingType: "Disaster Basics", date: "" });
   const [opForm, setOpForm] = useState({ title: "", disasterType: "other", location: "", startsAt: "", endsAt: "", teamLeaderUsers: [] });
+  const [opLeaderSearch, setOpLeaderSearch] = useState("");
+  const [opLeaderCandidates, setOpLeaderCandidates] = useState([]);
+  const [selectedTeamMember, setSelectedTeamMember] = useState(null);
 
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
   const showModal = (type, message, title = "") => setModal({ open: true, type, message, title });
@@ -134,6 +137,22 @@ const Home = () => {
     }, 300);
     return () => clearTimeout(t);
   }, [officerAgsSearch, headers, user?.role]);
+
+  useEffect(() => {
+    if (user?.role !== "camp_officer" || !officerStats?.camp?._id) return;
+    const t = setTimeout(async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/volunteers/camp-officer/team-leaders`, {
+          headers,
+          params: { page: 1, limit: 20, search: opLeaderSearch.trim() },
+        });
+        setOpLeaderCandidates(res.data.leaders || []);
+      } catch {
+        setOpLeaderCandidates([]);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [opLeaderSearch, headers, user?.role, officerStats?.camp?._id]);
 
   const loadMoreCamps = async () => {
     if (campPage >= campTotalPages) return;
@@ -265,6 +284,7 @@ const Home = () => {
         { headers }
       );
       setOpForm({ title: "", disasterType: "other", location: "", startsAt: "", endsAt: "", teamLeaderUsers: [] });
+      setOpLeaderSearch("");
       showModal("success", "Operation created");
       loadRoleData();
     } catch (err) {
@@ -356,7 +376,11 @@ const Home = () => {
           <p>Members (max 5): {(tlDash.team?.members || []).length}</p>
           <ul className="compact-list">
             {(tlDash.team?.members || []).map((m) => (
-              <li key={m._id}>{m.user?.name || "Volunteer"}</li>
+              <li key={m._id}>
+                <button type="button" className="loc-pick" onClick={() => setSelectedTeamMember(m)}>
+                  {m.user?.AGS_ID || "N/A"} - {m.user?.name || "Volunteer"}
+                </button>
+              </li>
             ))}
           </ul>
           <h3>Assigned operations</h3>
@@ -424,16 +448,42 @@ const Home = () => {
                   <input placeholder="Location text" value={opForm.location} onChange={(e) => setOpForm({ ...opForm, location: e.target.value })} />
                   <input type="datetime-local" min={minDateTimeLocal()} value={opForm.startsAt} onChange={(e) => setOpForm({ ...opForm, startsAt: e.target.value })} />
                   <input type="datetime-local" min={minDateTimeLocal()} value={opForm.endsAt} onChange={(e) => setOpForm({ ...opForm, endsAt: e.target.value })} />
-                  <p className="home-small-hint">Select team leaders (same camp) by user id list (comma-separated Mongo ids) if needed.</p>
+                  <p className="home-small-hint">Select team leaders in your camp by AGS_ID only.</p>
                   <input
-                    placeholder="Team leader user IDs comma separated"
+                    className="full-input"
+                    placeholder="Search team leaders by AGS_ID"
+                    value={opLeaderSearch}
+                    onChange={(e) => setOpLeaderSearch(e.target.value)}
+                  />
+                  {opLeaderCandidates.length > 0 ? (
+                    <ul className="loc-dropdown">
+                      {opLeaderCandidates.map((c) => {
+                        const isSelected = opForm.teamLeaderUsers.includes(c.user._id);
+                        return (
+                          <li key={c.user._id}>
+                            <button
+                              type="button"
+                              className="loc-pick"
+                              onClick={() =>
+                                setOpForm((prev) => ({
+                                  ...prev,
+                                  teamLeaderUsers: isSelected
+                                    ? prev.teamLeaderUsers.filter((id) => id !== c.user._id)
+                                    : [...prev.teamLeaderUsers, c.user._id],
+                                }))
+                              }
+                            >
+                              {isSelected ? "✓ " : ""}{c.user.AGS_ID} - {c.user.name}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+                  <input
+                    placeholder="Selected team leader user IDs"
                     value={opForm.teamLeaderUsers.join(",")}
-                    onChange={(e) =>
-                      setOpForm({
-                        ...opForm,
-                        teamLeaderUsers: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-                      })
-                    }
+                    readOnly
                   />
                   <button className="login-button" type="submit">
                     Create operation
@@ -575,6 +625,17 @@ const Home = () => {
           <FaMapMarkedAlt /> OpenWeather
         </a>
       </section>
+      <StatusModal
+        open={!!selectedTeamMember}
+        type="success"
+        title="Volunteer Profile"
+        onClose={() => setSelectedTeamMember(null)}
+      >
+        <p>Name: {selectedTeamMember?.user?.name || "N/A"}</p>
+        <p>Email: {selectedTeamMember?.user?.email || "N/A"}</p>
+        <p>AGS ID: {selectedTeamMember?.user?.AGS_ID || "N/A"}</p>
+        <p>Role: {selectedTeamMember?.user?.role || "N/A"}</p>
+      </StatusModal>
     </div>
   );
 };
