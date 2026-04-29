@@ -66,9 +66,7 @@ const AppShell = () => {
           <span className="app-shell-brand-text">Aegis</span>
         </Link>
         <div className="app-shell-nav-right" ref={menuRef}>
-          <Link to="/faq" className="app-shell-top-link">
-            FAQ
-          </Link>
+          
           <button type="button" className="app-shell-profile-btn" onClick={() => setOpen(!open)}>
             <span className="app-shell-avatar">{user?.name?.charAt(0)?.toUpperCase() || "?"}</span>
             <FaChevronDown className="app-shell-chevron" />
@@ -98,12 +96,14 @@ const AppShell = () => {
       </main>
       {!isAdminInterface ? (
         <footer className="app-shell-footer">
+          <div className="app-shell-footer-content">
           <Link to="/privacy">Privacy Policy</Link>
           <Link to="/terms">Terms and Conditions</Link>
           <Link to="/volunteer-safety">Volunteer Safety</Link>
           <Link to="/legal">Legal Section</Link>
           <Link to="/help">Help</Link>
           <Link to="/faq">FAQ</Link>
+          </div>
         </footer>
       ) : null}
     </div>

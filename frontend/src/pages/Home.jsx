@@ -321,7 +321,7 @@ const Home = () => {
       <section className="home-premium-hero">
         <div>
           <h2>Welcome, {user?.name || "User"}</h2>
-          <p>Role-based dashboard. Use the profile menu for FAQ, contact, and logout.</p>
+          <p>Stay informed. Response faster. Protect lives.</p>
         </div>
       </section>
 

@@ -468,8 +468,8 @@
     width: 56px;
     height: 56px;
     object-fit: contain;
-    border-radius: 10px;
-    background: rgba(255,255,255,0.2);
+    border-radius: 50px;
+    background: rgb(255, 255, 255);
     padding: 6px;
 }
 
@@ -662,9 +662,9 @@
 }
 
 .home-premium-link-btn.ghost {
-    background: transparent;
+    background: white;
     border: 1px solid rgba(255, 255, 255, 0.5);
-    color: #fff;
+    color: #060505;
 }
 
 .home-small-hint {
@@ -796,9 +796,9 @@
 .app-shell-logo {
     width: 40px;
     height: 40px;
-    border-radius: 8px;
+    border-radius: 50px;
     object-fit: contain;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgb(246, 243, 243);
     padding: 4px;
 }
 
@@ -948,8 +948,13 @@
     flex-wrap: wrap;
     gap: 10px;
     background: rgba(0, 0, 0, 0.25);
+    justify-content: center;
 }
-
+.app-shell-footer-content{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
 .app-shell-footer a {
     color: #f5f7ff;
     text-decoration: none;

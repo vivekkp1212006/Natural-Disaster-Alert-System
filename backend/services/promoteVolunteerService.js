@@ -30,10 +30,15 @@ const tryPromoteAfterTraining = async (userId, campOfficerId) => {
     return { promoted: false, message: 'Volunteer is already assigned to a camp' };
   }
 
-  const lat = user.location?.lat;
-  const lng = user.location?.lng;
-  const nearest = await findNearestCamp(lat, lng);
-  if (!nearest?.camp) {
+  let targetCamp = null;
+  if (user.volunteerRequestCamp) {
+    targetCamp = { camp: { _id: user.volunteerRequestCamp } };
+  } else {
+    const lat = user.location?.lat;
+    const lng = user.location?.lng;
+    targetCamp = await findNearestCamp(lat, lng);
+  }
+  if (!targetCamp?.camp) {
     return { promoted: false, message: 'No camp available for assignment' };
   }
 
@@ -41,6 +46,8 @@ const tryPromoteAfterTraining = async (userId, campOfficerId) => {
   user.requestedRole = null;
   user.requestStatus = null;
   user.roleRequestedAt = null;
+  user.volunteerRequestCamp = null;
+  user.volunteerRequestDistanceKm = null;
   await user.save();
 
   volunteer.status = 'approved';
@@ -49,13 +56,13 @@ const tryPromoteAfterTraining = async (userId, campOfficerId) => {
   await volunteer.save();
 
   try {
-    await assignVolunteerToCampTeamOrReserve(volunteer._id, nearest.camp._id);
+    await assignVolunteerToCampTeamOrReserve(volunteer._id, targetCamp.camp._id);
   } catch (error) {
     return { promoted: false, message: error.message || 'Volunteer assignment failed' };
   }
   await refreshVolunteerBadge(Volunteer, volunteer._id);
 
-  return { promoted: true, message: 'User promoted to volunteer', camp: nearest.camp };
+  return { promoted: true, message: 'User promoted to volunteer', camp: targetCamp.camp };
 };
 
 module.exports = { tryPromoteAfterTraining, countCompletedTrainings };

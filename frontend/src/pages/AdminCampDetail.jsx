@@ -29,8 +29,8 @@ const AdminCampDetail = () => {
     load();
   }, [campId, headers, navigate, token, user?.role]);
 
-  const leaders = detail?.teams || [];
-  const volunteers = (detail?.teams || []).flatMap((t) => t.members || []);
+  const leaders = detail?.teamLeaders || [];
+  const volunteers = detail?.volunteers || [];
   const operations = detail?.operations || [];
 
   return (
@@ -42,7 +42,7 @@ const AdminCampDetail = () => {
           <button type="button" className="home-premium-link-btn ghost" onClick={() => setSection("team_leaders")}>Team leaders</button>
           <button type="button" className="home-premium-link-btn ghost" onClick={() => setSection("volunteers")}>Volunteers</button>
           <button type="button" className="home-premium-link-btn ghost" onClick={() => setSection("camp_officer")}>Camp officer</button>
-          <button type="button" className="home-premium-link-btn ghost" onClick={() => setSection("operations")}>Operations</button>
+          <button type="button" className="home-premium-link-btn ghost" onClick={() => setSection("operations")}>Live/upcoming operations</button>
         </div>
 
         {section === "camp_officer" && detail?.camp?.campOfficer ? (
@@ -54,8 +54,8 @@ const AdminCampDetail = () => {
           <ul className="compact-list">
             {leaders.map((t) => (
               <li key={t._id}>
-                <button type="button" className="loc-pick" onClick={() => setSelectedProfile(t.leader || { name: "Leader", AGS_ID: "N/A" })}>
-                  {(t.leader?.name || "Team leader")} ({t.leader?.AGS_ID || "N/A"})
+                <button type="button" className="loc-pick" onClick={() => setSelectedProfile(t.user || { name: "Leader", AGS_ID: "N/A" })}>
+                  {(t.user?.name || "Team leader")} ({t.user?.AGS_ID || "N/A"})
                 </button>
               </li>
             ))}
