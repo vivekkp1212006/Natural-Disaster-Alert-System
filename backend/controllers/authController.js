@@ -526,19 +526,24 @@ const requestRoleUpgrade = async (req, res) => {
       });
     }
 
-    user.requestedRole = 'volunteer';
-    user.requestStatus = 'pending';
-    user.roleRequestedAt = new Date();
-
-    await user.save();
-    await ensureTrainingRows(user._id);
-
     const lat = user.location?.lat;
     const lng = user.location?.lng;
     const nearest = await findNearestCamp(lat, lng);
-    const campLine = nearest?.camp
-      ? `Nearest training camp: ${nearest.camp.name} (approx ${nearest.distanceKm.toFixed(1)} km away).`
-      : 'Complete your trainings with a camp officer. A camp will be assigned once you are promoted.';
+    if (!nearest?.camp) {
+      return res.status(400).json({
+        message: 'No nearby camp found for volunteer request',
+      });
+    }
+
+    user.requestedRole = 'volunteer';
+    user.requestStatus = 'pending';
+    user.roleRequestedAt = new Date();
+    user.volunteerRequestCamp = nearest.camp._id;
+    user.volunteerRequestDistanceKm = nearest.distanceKm;
+
+    await user.save();
+    await ensureTrainingRows(user._id);
+    const campLine = `Nearest training camp: ${nearest.camp.name} (approx ${nearest.distanceKm.toFixed(1)} km away).`;
 
     await sendStructuredEmail({
       to: user.email,
@@ -557,9 +562,7 @@ const requestRoleUpgrade = async (req, res) => {
         requestedRole: user.requestedRole,
         requestStatus: user.requestStatus,
         roleRequestedAt: user.roleRequestedAt,
-        nearestCamp: nearest?.camp
-          ? { name: nearest.camp.name, distanceKm: nearest.distanceKm }
-          : null,
+        nearestCamp: { name: nearest.camp.name, distanceKm: nearest.distanceKm },
       },
     });
   } catch (error) {
@@ -646,6 +649,8 @@ const approveRoleRequest = async (req, res) => {
     user.requestedRole = null;
     user.requestStatus = null;
     user.roleRequestedAt = null;
+    user.volunteerRequestCamp = null;
+    user.volunteerRequestDistanceKm = null;
 
     // 6. Save changes
     await user.save();
@@ -695,6 +700,8 @@ const rejectRoleRequest = async (req, res) => {
     user.requestedRole = null;
     user.requestStatus = null;
     user.roleRequestedAt = null;
+    user.volunteerRequestCamp = null;
+    user.volunteerRequestDistanceKm = null;
 
     // 5. Save changes
     await user.save();

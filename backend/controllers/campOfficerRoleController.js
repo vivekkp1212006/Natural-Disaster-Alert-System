@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Volunteer = require('../models/volunteer');
+const Camp = require('../models/camp');
 const VolunteerTrainingProgress = require('../models/VolunteerTrainingProgress');
 const { TRAINING_MODULE_KEYS } = require('../constants/trainingModules');
 const { tryPromoteAfterTraining } = require('../services/promoteVolunteerService');
@@ -21,10 +22,16 @@ const getPendingVolunteerRequests = async (req, res) => {
     const skip = (page - 1) * limit;
     const search = (req.query.search || '').trim();
 
+    const officerCamp = await Camp.findOne({ campOfficer: req.user.id }).select('_id');
+    if (!officerCamp) {
+      return res.json({ page, limit, total: 0, totalPages: 0, requests: [] });
+    }
+
     const filter = {
       role: 'user',
       requestStatus: 'pending',
       requestedRole: 'volunteer',
+      volunteerRequestCamp: officerCamp._id,
     };
     if (search) {
       filter.AGS_ID = new RegExp(`^${search}`, 'i');
@@ -67,9 +74,17 @@ const toggleVolunteerTrainingModule = async (req, res) => {
       return res.status(400).json({ message: 'Invalid training module' });
     }
 
+    const officerCamp = await Camp.findOne({ campOfficer: req.user.id }).select('_id');
+    if (!officerCamp) {
+      return res.status(403).json({ message: 'Camp officer has no assigned camp' });
+    }
+
     const user = await User.findById(userId);
     if (!user || user.requestStatus !== 'pending') {
       return res.status(400).json({ message: 'No pending volunteer request for user' });
+    }
+    if (!user.volunteerRequestCamp || String(user.volunteerRequestCamp) !== String(officerCamp._id)) {
+      return res.status(403).json({ message: 'Request does not belong to your camp' });
     }
 
     await ensureTrainingRows(user._id);
@@ -99,6 +114,10 @@ const toggleVolunteerTrainingModule = async (req, res) => {
 const rejectVolunteerRequestByOfficer = async (req, res) => {
   try {
     const { userId } = req.params;
+    const officerCamp = await Camp.findOne({ campOfficer: req.user.id }).select('_id');
+    if (!officerCamp) {
+      return res.status(403).json({ message: 'Camp officer has no assigned camp' });
+    }
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -106,10 +125,15 @@ const rejectVolunteerRequestByOfficer = async (req, res) => {
     if (user.requestStatus !== 'pending') {
       return res.status(400).json({ message: 'No pending request' });
     }
+    if (!user.volunteerRequestCamp || String(user.volunteerRequestCamp) !== String(officerCamp._id)) {
+      return res.status(403).json({ message: 'Request does not belong to your camp' });
+    }
 
     user.requestedRole = null;
     user.requestStatus = null;
     user.roleRequestedAt = null;
+    user.volunteerRequestCamp = null;
+    user.volunteerRequestDistanceKm = null;
     await user.save();
 
     await Volunteer.findOneAndUpdate({ user: user._id }, { status: 'rejected' });

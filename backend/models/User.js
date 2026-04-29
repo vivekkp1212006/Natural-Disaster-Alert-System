@@ -56,6 +56,15 @@ const userSchema = new mongoose.Schema(
     type: Date,
     default: null,
   },
+  volunteerRequestCamp: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Camp',
+    default: null,
+  },
+  volunteerRequestDistanceKm: {
+    type: Number,
+    default: null,
+  },
 
     location: {
     lat: {
